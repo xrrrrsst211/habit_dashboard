@@ -253,36 +253,30 @@ body: Center(child: Text('Error: ${snap.error}')),
 }
 
 final todayKey = _todayKey();
-
 final base = _showArchived ? _habits : _habits.where((h) => !h.archived).toList();
 
-final sorted = List<Habit>.from(base)
-..sort((a, b) {
-final ad = a.completedDates.contains(todayKey) ? 1 : 0;
-final bd = b.completedDates.contains(todayKey) ? 1 : 0;
-if (ad != bd) return ad.compareTo(bd);
-return a.title.toLowerCase().compareTo(b.title.toLowerCase());
-});
+// Keep current order; don't sort now (drag&drop defines order)
+final list = List<Habit>.from(base);
 
-// apply filter + search
-final filtered = sorted.where((h) {
+// Apply filter + search without changing underlying order
+final visible = list.where((h) {
 final doneToday = h.completedDates.contains(todayKey);
 
-// filter
 final passFilter = switch (_filter) {
 _HabitFilter.all => true,
 _HabitFilter.active => !doneToday,
 _HabitFilter.completed => doneToday,
 };
-
 if (!passFilter) return false;
 
-// search
 if (_query.isEmpty) return true;
 return h.title.toLowerCase().contains(_query);
 }).toList();
 
-final completed = sorted.where((h) => h.completedDates.contains(todayKey)).length;
+final visibleIds = visible.map((h) => h.id).toList();
+
+// Progress is based on visible base list (not filtered list) — feels consistent
+final completed = list.where((h) => h.completedDates.contains(todayKey)).length;
 
 final headerRow = Row(
 children: [
@@ -323,42 +317,62 @@ floatingActionButton: FloatingActionButton(
 onPressed: _openAddHabit,
 child: const Icon(Icons.add),
 ),
-body: sorted.isEmpty
+body: list.isEmpty
 ? const EmptyState(
 title: AppStrings.emptyTitle,
 subtitle: AppStrings.emptySubtitle,
 )
-: ListView(
-padding: const EdgeInsets.only(bottom: 120),
+: Column(
 children: [
 const SizedBox(height: 8),
-headerRow,
+Padding(
+padding: const EdgeInsets.symmetric(horizontal: 12),
+child: headerRow,
+),
 const SizedBox(height: 10),
-
-// ✅ Search
 _searchBar(),
-
-// ✅ Filters
 _filterChips(),
 const SizedBox(height: 12),
-
-DailyProgressCard(
+Padding(
+padding: const EdgeInsets.symmetric(horizontal: 12),
+child: DailyProgressCard(
 completed: completed,
-total: sorted.length,
+total: list.length,
+),
 ),
 const SizedBox(height: 12),
 
-if (filtered.isEmpty)
-Padding(
-padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+Expanded(
+child: visible.isEmpty
+? Center(
 child: Text(
 _query.isEmpty ? 'Nothing here 👀' : 'No matches for “$_query”',
 ),
 )
-else
-...filtered.map(
-(h) => Padding(
-padding: const EdgeInsets.only(bottom: 10),
+: ReorderableListView.builder(
+padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
+itemCount: visible.length,
+onReorder: (oldIndex, newIndex) async {
+await _repo.reorderByIds(oldIndex, newIndex, visibleIds);
+if (!mounted) return;
+setState(() {});
+},
+itemBuilder: (context, index) {
+final h = visible[index];
+
+return Container(
+key: ValueKey('habit_${h.id}'),
+margin: const EdgeInsets.only(bottom: 10),
+child: Row(
+children: [
+ReorderableDragStartListener(
+index: index,
+child: const Padding(
+padding: EdgeInsets.only(right: 8),
+child: Icon(Icons.drag_handle),
+),
+),
+Expanded(
 child: HabitTile(
 habit: h,
 onToggle: () => _toggle(h.id),
@@ -366,6 +380,11 @@ onOpenDetails: () => _openDetails(h),
 onEdit: () => _openEditHabit(h),
 onDelete: () => _confirmAndRemoveWithUndo(h),
 ),
+),
+],
+),
+);
+},
 ),
 ),
 ],

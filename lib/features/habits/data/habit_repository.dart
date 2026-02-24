@@ -70,12 +70,18 @@ decoded
 );
 }
 
-// после миграций — сохраняем
+// after migrations
 await _save(prefs);
 _initialized = true;
 }
 
 List<Habit> getHabits() => List.unmodifiable(_habits);
+
+Habit? getById(String id) {
+final i = _habits.indexWhere((h) => h.id == id);
+if (i == -1) return null;
+return _habits[i];
+}
 
 // ---------- core actions ----------
 
@@ -173,7 +179,6 @@ final prefs = await SharedPreferences.getInstance();
 await _save(prefs);
 }
 
-// ✅ A) Goal reached actions
 Future<void> restartHabitProgress(String id) async {
 final i = _habits.indexWhere((h) => h.id == id);
 if (i == -1) return;
@@ -192,13 +197,45 @@ _habits[i] = _habits[i].copyWith(archived: archived);
 await _save(prefs);
 }
 
-// ✅ B) Reminder UI storage
 Future<void> setReminderMinutes(String id, int? reminderMinutes) async {
 final i = _habits.indexWhere((h) => h.id == id);
 if (i == -1) return;
 
 final prefs = await SharedPreferences.getInstance();
 _habits[i] = _habits[i].copyWith(reminderMinutes: reminderMinutes);
+await _save(prefs);
+}
+
+// ✅ NEW: reorder by ids (safe with filters/search)
+Future<void> reorderByIds(int oldIndex, int newIndex, List<String> visibleIds) async {
+if (oldIndex < 0 || oldIndex >= visibleIds.length) return;
+if (newIndex < 0 || newIndex > visibleIds.length) return;
+
+// ReorderableListView gives "newIndex" after removal, so adjust
+if (newIndex > oldIndex) newIndex -= 1;
+
+if (oldIndex == newIndex) return;
+
+final movedId = visibleIds[oldIndex];
+
+// remove from _habits
+final from = _habits.indexWhere((h) => h.id == movedId);
+if (from == -1) return;
+
+final moved = _habits.removeAt(from);
+
+// target position: before the id currently at newIndex in visible list
+int insertAt = _habits.length;
+
+if (newIndex < visibleIds.length) {
+final beforeId = visibleIds[newIndex];
+final beforePos = _habits.indexWhere((h) => h.id == beforeId);
+if (beforePos != -1) insertAt = beforePos;
+}
+
+_habits.insert(insertAt, moved);
+
+final prefs = await SharedPreferences.getInstance();
 await _save(prefs);
 }
 
