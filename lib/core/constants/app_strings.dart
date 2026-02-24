@@ -1,9 +1,11 @@
 class AppStrings {
   static const appTitle = 'Daily Habit Dashboard';
+
   static const today = 'Today';
-  static const dailyProgress = 'Daily progress';
-  static const addHabit = 'Add habit';
-  static const habitName = 'Habit name';
-  static const create = 'Create';
-  static const cancel = 'Cancel';
+
+  static const progressTitle = 'Daily progress';
+  static const progressSubtitle = '{done} / {total} habits completed';
+
+  static const emptyTitle = 'No habits yet';
+  static const emptySubtitle = 'Tap + to add your first habit.';
 }

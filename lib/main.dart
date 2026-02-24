@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'app/app.dart';
+import 'package:habit_dashboard/app/app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

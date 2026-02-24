@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_strings.dart';
-import '../../../../core/widgets/app_scaffold.dart';
+import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 
 class AddHabitScreen extends StatefulWidget {
   const AddHabitScreen({super.key});
@@ -27,41 +26,27 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: AppStrings.addHabit,
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(
-                labelText: AppStrings.habitName,
-                hintText: 'e.g. Study 30 min',
-              ),
+      title: 'Add habit',
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            decoration: const InputDecoration(
+              labelText: 'Habit name',
+              hintText: 'e.g. Study 30 min',
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(AppStrings.cancel),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _submit,
-                    child: const Text(AppStrings.create),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _submit,
+            icon: const Icon(Icons.check),
+            label: const Text('Add'),
+          ),
+        ],
       ),
     );
   }

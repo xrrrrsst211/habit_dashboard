@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'routes.dart';
-import 'theme.dart';
+import 'package:habit_dashboard/app/routes.dart';
+import 'package:habit_dashboard/app/theme.dart';
 
 class HabitDashboardApp extends StatelessWidget {
   const HabitDashboardApp({super.key});
@@ -11,8 +11,8 @@ class HabitDashboardApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Habit Dashboard',
       theme: buildAppTheme(),
-      initialRoute: AppRoutes.home,
       onGenerateRoute: AppRoutes.onGenerateRoute,
+      initialRoute: AppRoutes.home,
     );
   }
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../features/habits/presentation/add_habit/add_habit_screen.dart';
-import '../features/habits/presentation/home/home_screen.dart';
+import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
+import 'package:habit_dashboard/features/habits/presentation/home/home_screen.dart';
 
 class AppRoutes {
   static const home = '/';
@@ -13,11 +13,7 @@ class AppRoutes {
       case addHabit:
         return MaterialPageRoute(builder: (_) => const AddHabitScreen());
       default:
-        return MaterialPageRoute(
-          builder: (_) => const Scaffold(
-            body: Center(child: Text('Route not found')),
-          ),
-        );
+        return MaterialPageRoute(builder: (_) => const HomeScreen());
     }
   }
 }

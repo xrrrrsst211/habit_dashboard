@@ -10,10 +10,12 @@ ThemeData buildAppTheme() {
   return base.copyWith(
     cardTheme: const CardThemeData(
       elevation: 0,
+      margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(16)),
       ),
     ),
+
     inputDecorationTheme: const InputDecorationTheme(
       border: OutlineInputBorder(
         borderRadius: BorderRadius.all(Radius.circular(14)),

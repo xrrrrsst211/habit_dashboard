@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
-import '../../../../../core/constants/app_strings.dart';
 
 class TodayHeader extends StatelessWidget {
   const TodayHeader({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      AppStrings.today,
-      style: Theme.of(context).textTheme.headlineMedium,
+    final now = DateTime.now();
+    final text = '${now.day}.${now.month}.${now.year}';
+
+    return Row(
+      children: [
+        Text('Your day', style: Theme.of(context).textTheme.titleLarge),
+        const Spacer(),
+        Text(text, style: Theme.of(context).textTheme.bodyMedium),
+      ],
     );
   }
 }

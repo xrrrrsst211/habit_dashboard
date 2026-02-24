@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-
 import 'package:habit_dashboard/app/routes.dart';
 import 'package:habit_dashboard/core/constants/app_strings.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/empty_state.dart';
-
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
@@ -21,66 +19,80 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final HabitRepository _repo = HabitRepository();
+  late final Future<void> _initFuture = _repo.init();
 
   List<Habit> get _habits => _repo.getHabits();
 
-  void _toggle(String id) {
-    setState(() => _repo.toggleHabit(id));
+  Future<void> _toggle(String id) async {
+    await _repo.toggleHabit(id);
+    if (!mounted) return;
+    setState(() {});
   }
 
-  void _openAddHabit() {
-    Navigator.pushNamed(context, AppRoutes.addHabit).then((value) {
-      // add_habit_screen возвращает String? (название привычки)
-      if (value is String && value.trim().isNotEmpty) {
-        setState(() => _repo.addHabit(value.trim()));
-      }
-    });
+  Future<void> _remove(String id) async {
+    await _repo.removeHabit(id);
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _openAddHabit() async {
+    final value = await Navigator.pushNamed(context, AppRoutes.addHabit);
+    if (value is String && value.trim().isNotEmpty) {
+      await _repo.addHabit(value.trim());
+      if (!mounted) return;
+      setState(() {});
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final completed = _habits.where((h) => h.doneToday).length;
-    final total = _habits.length;
+    return FutureBuilder<void>(
+      future: _initFuture,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    return AppScaffold(
-      title: AppStrings.appTitle,
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: total == 0
-            ? EmptyState(
-                title: 'No habits yet',
-                subtitle: 'Add your first habit and start tracking.',
-                icon: Icons.checklist_rounded,
-                action: FilledButton.icon(
-                  onPressed: _openAddHabit,
-                  icon: const Icon(Icons.add),
-                  label: const Text(AppStrings.addHabit),
-                ),
-              )
-            : ListView(
-                children: [
-                  const TodayHeader(),
-                  const SizedBox(height: 12),
-                  DailyProgressCard(completed: completed, total: total),
-                  const SizedBox(height: 12),
-                  ..._habits.map(
-                    (h) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: HabitTile(
-                        title: h.title,
-                        done: h.doneToday,
-                        onToggle: () => _toggle(h.id),
+        final completed = _habits.where((h) => h.doneToday).length;
+
+        return AppScaffold(
+          title: AppStrings.today,
+          floatingActionButton: FloatingActionButton(
+            onPressed: _openAddHabit,
+            child: const Icon(Icons.add),
+          ),
+          body: _habits.isEmpty
+              ? const EmptyState(
+                  title: AppStrings.emptyTitle,
+                  subtitle: AppStrings.emptySubtitle,
+                )
+              : ListView(
+                  padding: const EdgeInsets.only(bottom: 120),
+                  children: [
+                    const SizedBox(height: 8),
+                    const TodayHeader(),
+                    const SizedBox(height: 12),
+                    DailyProgressCard(
+                      completed: completed,
+                      total: _habits.length,
+                    ),
+                    const SizedBox(height: 12),
+                    ..._habits.map(
+                      (h) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: HabitTile(
+                          habit: h,
+                          onToggle: () => _toggle(h.id),
+                          onDelete: () => _remove(h.id),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 80),
-                ],
-              ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openAddHabit,
-        child: const Icon(Icons.add),
-      ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
