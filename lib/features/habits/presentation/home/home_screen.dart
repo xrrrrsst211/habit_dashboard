@@ -29,7 +29,16 @@ late final Future<void> _initFuture = _repo.init();
 _HabitFilter _filter = _HabitFilter.all;
 bool _showArchived = false;
 
+final TextEditingController _searchCtrl = TextEditingController();
+String _query = '';
+
 List<Habit> get _habits => _repo.getHabits();
+
+@override
+void dispose() {
+_searchCtrl.dispose();
+super.dispose();
+}
 
 String _todayKey() {
 final now = DateTime.now();
@@ -199,6 +208,33 @@ chip('Completed', _HabitFilter.completed),
 );
 }
 
+Widget _searchBar() {
+return Padding(
+padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+child: TextField(
+controller: _searchCtrl,
+onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+decoration: InputDecoration(
+hintText: 'Search habits...',
+prefixIcon: const Icon(Icons.search),
+suffixIcon: _query.isEmpty
+? null
+: IconButton(
+tooltip: 'Clear',
+onPressed: () {
+_searchCtrl.clear();
+setState(() => _query = '');
+},
+icon: const Icon(Icons.close),
+),
+border: OutlineInputBorder(
+borderRadius: BorderRadius.circular(14),
+),
+),
+),
+);
+}
+
 @override
 Widget build(BuildContext context) {
 return FutureBuilder<void>(
@@ -228,16 +264,22 @@ if (ad != bd) return ad.compareTo(bd);
 return a.title.toLowerCase().compareTo(b.title.toLowerCase());
 });
 
+// apply filter + search
 final filtered = sorted.where((h) {
 final doneToday = h.completedDates.contains(todayKey);
-switch (_filter) {
-case _HabitFilter.all:
-return true;
-case _HabitFilter.active:
-return !doneToday;
-case _HabitFilter.completed:
-return doneToday;
-}
+
+// filter
+final passFilter = switch (_filter) {
+_HabitFilter.all => true,
+_HabitFilter.active => !doneToday,
+_HabitFilter.completed => doneToday,
+};
+
+if (!passFilter) return false;
+
+// search
+if (_query.isEmpty) return true;
+return h.title.toLowerCase().contains(_query);
 }).toList();
 
 final completed = sorted.where((h) => h.completedDates.contains(todayKey)).length;
@@ -292,17 +334,26 @@ children: [
 const SizedBox(height: 8),
 headerRow,
 const SizedBox(height: 10),
+
+// ✅ Search
+_searchBar(),
+
+// ✅ Filters
 _filterChips(),
 const SizedBox(height: 12),
+
 DailyProgressCard(
 completed: completed,
 total: sorted.length,
 ),
 const SizedBox(height: 12),
+
 if (filtered.isEmpty)
-const Padding(
-padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-child: Text('Nothing here 👀'),
+Padding(
+padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+child: Text(
+_query.isEmpty ? 'Nothing here 👀' : 'No matches for “$_query”',
+),
 )
 else
 ...filtered.map(
