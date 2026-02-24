@@ -25,24 +25,32 @@ id: '1',
 title: 'Drink water',
 completedDates: <String>{},
 targetDays: 21,
+archived: false,
+reminderMinutes: null,
 ),
 Habit(
 id: '2',
 title: 'Workout',
 completedDates: <String>{},
 targetDays: 30,
+archived: false,
+reminderMinutes: null,
 ),
 Habit(
 id: '3',
 title: 'Read 20 minutes',
 completedDates: <String>{},
 targetDays: 0,
+archived: false,
+reminderMinutes: null,
 ),
 Habit(
 id: '4',
 title: 'Meditate',
 completedDates: <String>{},
 targetDays: 14,
+archived: false,
+reminderMinutes: null,
 ),
 ]);
 
@@ -62,9 +70,8 @@ decoded
 );
 }
 
-// после миграции — сохраняем в новом формате
+// после миграций — сохраняем
 await _save(prefs);
-
 _initialized = true;
 }
 
@@ -92,7 +99,6 @@ _habits[i] = current.copyWith(completedDates: newDates);
 await _save(prefs);
 }
 
-// ✅ NEW: toggle specific day (for details screen)
 Future<void> toggleDate(String habitId, String dateKey) async {
 final i = _habits.indexWhere((h) => h.id == habitId);
 if (i == -1) return;
@@ -112,7 +118,7 @@ _habits[i] = current.copyWith(completedDates: newDates);
 await _save(prefs);
 }
 
-Future<void> addHabit(String title, int targetDays) async {
+Future<void> addHabit(String title, int targetDays, int? reminderMinutes) async {
 final t = title.trim();
 if (t.isEmpty) return;
 
@@ -125,6 +131,8 @@ id: newId,
 title: t,
 completedDates: <String>{},
 targetDays: targetDays,
+archived: false,
+reminderMinutes: reminderMinutes,
 ),
 );
 
@@ -162,6 +170,35 @@ if (i == -1) return;
 
 _habits[i] = _habits[i].copyWith(targetDays: targetDays);
 final prefs = await SharedPreferences.getInstance();
+await _save(prefs);
+}
+
+// ✅ A) Goal reached actions
+Future<void> restartHabitProgress(String id) async {
+final i = _habits.indexWhere((h) => h.id == id);
+if (i == -1) return;
+
+final prefs = await SharedPreferences.getInstance();
+_habits[i] = _habits[i].copyWith(completedDates: <String>{});
+await _save(prefs);
+}
+
+Future<void> setArchived(String id, bool archived) async {
+final i = _habits.indexWhere((h) => h.id == id);
+if (i == -1) return;
+
+final prefs = await SharedPreferences.getInstance();
+_habits[i] = _habits[i].copyWith(archived: archived);
+await _save(prefs);
+}
+
+// ✅ B) Reminder UI storage
+Future<void> setReminderMinutes(String id, int? reminderMinutes) async {
+final i = _habits.indexWhere((h) => h.id == id);
+if (i == -1) return;
+
+final prefs = await SharedPreferences.getInstance();
+_habits[i] = _habits[i].copyWith(reminderMinutes: reminderMinutes);
 await _save(prefs);
 }
 

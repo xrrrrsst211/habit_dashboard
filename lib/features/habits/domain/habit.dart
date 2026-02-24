@@ -2,17 +2,25 @@ class Habit {
 final String id;
 final String title;
 
-/// Фактические даты выполнения, например {"2026-02-24", "2026-02-23"}
+/// Фактические даты выполнения: {"yyyy-MM-dd", ...}
 final Set<String> completedDates;
 
-/// цель/срок в днях. 0 = без срока
+/// цель в днях. 0 = без срока
 final int targetDays;
+
+/// архивировано ли
+final bool archived;
+
+/// напоминание: минуты от 00:00 (например 20:30 = 1230). null = off
+final int? reminderMinutes;
 
 const Habit({
 required this.id,
 required this.title,
 required this.completedDates,
 required this.targetDays,
+required this.archived,
+required this.reminderMinutes,
 });
 
 Habit copyWith({
@@ -20,12 +28,16 @@ String? id,
 String? title,
 Set<String>? completedDates,
 int? targetDays,
+bool? archived,
+int? reminderMinutes,
 }) {
 return Habit(
 id: id ?? this.id,
 title: title ?? this.title,
 completedDates: completedDates ?? this.completedDates,
 targetDays: targetDays ?? this.targetDays,
+archived: archived ?? this.archived,
+reminderMinutes: reminderMinutes ?? this.reminderMinutes,
 );
 }
 
@@ -34,6 +46,8 @@ Map<String, dynamic> toJson() => {
 'title': title,
 'completedDates': completedDates.toList(),
 'targetDays': targetDays,
+'archived': archived,
+'reminderMinutes': reminderMinutes,
 };
 
 static Habit fromJson(Map<String, dynamic> json) {
@@ -44,23 +58,19 @@ if (rawDates is List) {
 dates = rawDates.whereType<String>().toSet();
 }
 
-// ✅ МИГРАЦИЯ со старой версии (streak/doneToday/lastCompletedDate)
-// Если completedDates пустой, попробуем восстановить по старым полям.
+// ✅ Миграция со старых версий (streak/doneToday/lastCompletedDate)
 if (dates.isEmpty) {
 final oldStreak = (json['streak'] as int?) ?? 0;
 final oldDoneToday = (json['doneToday'] as bool?) ?? false;
 final oldLast = (json['lastCompletedDate'] as String?) ?? '';
 
 DateTime? endDate;
-if (oldLast.isNotEmpty) {
-endDate = _tryParseYmd(oldLast);
-}
+if (oldLast.isNotEmpty) endDate = _tryParseYmd(oldLast);
 endDate ??= DateTime.now();
 
-// Если раньше было doneToday=true — считаем, что выполнено в endDate (обычно сегодня)
 if (oldDoneToday || oldLast.isNotEmpty || oldStreak > 0) {
 final streakToRebuild = oldStreak > 0 ? oldStreak : 1;
-final capped = streakToRebuild.clamp(1, 365); // чтобы не раздувать до бесконечности
+final capped = streakToRebuild.clamp(1, 365);
 
 for (int i = 0; i < capped; i++) {
 final d = endDate.subtract(Duration(days: i));
@@ -74,10 +84,10 @@ id: (json['id'] as String?) ?? '',
 title: (json['title'] as String?) ?? '',
 completedDates: dates,
 targetDays: (json['targetDays'] as int?) ?? 0,
+archived: (json['archived'] as bool?) ?? false,
+reminderMinutes: (json['reminderMinutes'] as int?),
 );
 }
-
-// -------- helpers (private) --------
 
 static String _ymd(DateTime d) {
 String two(int n) => n.toString().padLeft(2, '0');

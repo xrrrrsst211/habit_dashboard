@@ -26,12 +26,14 @@ final today = _todayKey();
 final doneToday = habit.completedDates.contains(today);
 
 final streak = _calcStreak(habit.completedDates);
-final last7 = _last7Keys(); // [6 days ago ... today]
+final last7 = _last7Keys();
 
 final hasGoal = habit.targetDays > 0;
 final goalDone = hasGoal ? min(streak, habit.targetDays) : 0;
 final goalProgress =
 hasGoal ? (goalDone / habit.targetDays).clamp(0.0, 1.0) : 0.0;
+
+final goalReached = hasGoal && streak >= habit.targetDays;
 
 return Card(
 child: InkWell(
@@ -41,21 +43,40 @@ child: Padding(
 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
 child: Row(
 children: [
-Icon(doneToday ? Icons.check_circle : Icons.circle_outlined,
-size: 26),
+Icon(doneToday ? Icons.check_circle : Icons.circle_outlined, size: 26),
 const SizedBox(width: 12),
 Expanded(
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
-Text(
+// title row + goal reached chip
+Row(
+children: [
+Expanded(
+child: Text(
 habit.title,
-style:
-Theme.of(context).textTheme.titleMedium?.copyWith(
-decoration: doneToday
-? TextDecoration.lineThrough
-: null,
+style: Theme.of(context).textTheme.titleMedium?.copyWith(
+decoration:
+doneToday ? TextDecoration.lineThrough : null,
 ),
+),
+),
+if (goalReached)
+Container(
+padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+decoration: BoxDecoration(
+color: cs.primary.withOpacity(0.12),
+borderRadius: BorderRadius.circular(999),
+),
+child: Text(
+'🎉 reached',
+style: Theme.of(context)
+.textTheme
+.bodySmall
+?.copyWith(fontWeight: FontWeight.w700),
+),
+),
+],
 ),
 const SizedBox(height: 6),
 
@@ -68,18 +89,19 @@ todayBorderColor: cs.primary,
 
 const SizedBox(height: 6),
 
-Row(
+// streak + goal + reminder
+Wrap(
+spacing: 10,
+runSpacing: 6,
+crossAxisAlignment: WrapCrossAlignment.center,
 children: [
 Text(
-streak > 0
-? '🔥 $streak day streak'
-: 'No streak yet',
+streak > 0 ? '🔥 $streak day streak' : 'No streak yet',
 style: Theme.of(context)
 .textTheme
 .bodySmall
 ?.copyWith(color: Colors.black54),
 ),
-const SizedBox(width: 10),
 if (hasGoal)
 Text(
 '• $goalDone/${habit.targetDays}',
@@ -87,6 +109,21 @@ style: Theme.of(context)
 .textTheme
 .bodySmall
 ?.copyWith(color: Colors.black54),
+),
+if (habit.reminderMinutes != null)
+Row(
+mainAxisSize: MainAxisSize.min,
+children: [
+const Icon(Icons.notifications_active_outlined, size: 16),
+const SizedBox(width: 4),
+Text(
+_formatMinutes(habit.reminderMinutes!),
+style: Theme.of(context)
+.textTheme
+.bodySmall
+?.copyWith(color: Colors.black54),
+),
+],
 ),
 ],
 ),
@@ -127,7 +164,7 @@ icon: const Icon(Icons.delete_outline),
 );
 }
 
-// -------- date helpers --------
+// -------- helpers --------
 
 String _todayKey() => _keyFromDate(DateTime.now());
 
@@ -147,20 +184,24 @@ return '${d.year}-${two(d.month)}-${two(d.day)}';
 int _calcStreak(Set<String> dates) {
 final now = DateTime.now();
 int count = 0;
-
 while (true) {
 final d = now.subtract(Duration(days: count));
 final key = _keyFromDate(d);
 if (!dates.contains(key)) break;
 count++;
 }
-
 return count;
+}
+
+String _formatMinutes(int minutes) {
+final h = minutes ~/ 60;
+final m = minutes % 60;
+return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 }
 }
 
 class _WeekDotsByDates extends StatelessWidget {
-final List<String> last7Keys; // oldest -> today
+final List<String> last7Keys;
 final Set<String> completedDates;
 final Color activeColor;
 final Color todayBorderColor;
@@ -192,9 +233,7 @@ height: dotSize,
 decoration: BoxDecoration(
 shape: BoxShape.circle,
 color: isFilled ? activeColor : Colors.black.withOpacity(0.12),
-border: isToday
-? Border.all(color: todayBorderColor, width: 1.6)
-: null,
+border: isToday ? Border.all(color: todayBorderColor, width: 1.6) : null,
 ),
 ),
 );

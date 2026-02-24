@@ -15,7 +15,6 @@ State<HabitDetailScreen> createState() => _HabitDetailScreenState();
 class _HabitDetailScreenState extends State<HabitDetailScreen> {
 final HabitRepository _repo = HabitRepository();
 
-// отображаемый месяц (любой день внутри месяца)
 late DateTime _month;
 
 @override
@@ -40,8 +39,6 @@ final nextMonth = DateTime(month.year, month.month + 1, 1);
 return nextMonth.subtract(const Duration(days: 1)).day;
 }
 
-/// weekday: Mon=1..Sun=7
-/// convert to 0-based column where Mon=0..Sun=6
 int _weekdayToCol(int weekday) => (weekday - 1) % 7;
 
 int _calcStreak(Set<String> dates) {
@@ -58,21 +55,54 @@ return count;
 
 String _monthTitle(DateTime m) {
 const names = [
-'January', 'February', 'March', 'April', 'May', 'June',
-'July', 'August', 'September', 'October', 'November', 'December'
+'January','February','March','April','May','June',
+'July','August','September','October','November','December'
 ];
 return '${names[m.month - 1]} ${m.year}';
 }
 
-void _prevMonth() {
-setState(() => _month = DateTime(_month.year, _month.month - 1, 1));
+void _prevMonth() => setState(() => _month = DateTime(_month.year, _month.month - 1, 1));
+void _nextMonth() => setState(() => _month = DateTime(_month.year, _month.month + 1, 1));
+
+List<DateTime?> _buildMonthCells(DateTime month) {
+final first = DateTime(month.year, month.month, 1);
+final daysCount = _daysInMonth(month);
+
+final startCol = _weekdayToCol(first.weekday);
+final cells = <DateTime?>[];
+
+for (int i = 0; i < startCol; i++) {
+cells.add(null);
+}
+for (int day = 1; day <= daysCount; day++) {
+cells.add(DateTime(month.year, month.month, day));
+}
+while (cells.length % 7 != 0) {
+cells.add(null);
+}
+return cells;
 }
 
-void _nextMonth() {
-setState(() => _month = DateTime(_month.year, _month.month + 1, 1));
+String _formatMinutes(int minutes) {
+final h = minutes ~/ 60;
+final m = minutes % 60;
+return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
 }
 
-// -------- UI blocks --------
+Future<int?> _pickTime(BuildContext context, int initialMinutes) async {
+final initialTime = TimeOfDay(
+hour: initialMinutes ~/ 60,
+minute: initialMinutes % 60,
+);
+
+final t = await showTimePicker(
+context: context,
+initialTime: initialTime,
+);
+
+if (t == null) return null;
+return t.hour * 60 + t.minute;
+}
 
 Widget _monthHeader() {
 return Row(
@@ -100,7 +130,6 @@ icon: const Icon(Icons.chevron_right),
 }
 
 Widget _weekdayRow() {
-// пн..вс (коротко)
 const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 return Padding(
 padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -122,65 +151,52 @@ style: Theme.of(context)
 );
 }
 
-List<DateTime?> _buildMonthCells(DateTime month) {
-final first = DateTime(month.year, month.month, 1);
-final daysCount = _daysInMonth(month);
-
-final startCol = _weekdayToCol(first.weekday); // 0..6
-final cells = <DateTime?>[];
-
-// пустые ячейки до 1-го числа
-for (int i = 0; i < startCol; i++) {
-cells.add(null);
-}
-
-// дни месяца
-for (int day = 1; day <= daysCount; day++) {
-cells.add(DateTime(month.year, month.month, day));
-}
-
-// добиваем до полного количества недель (кратно 7)
-while (cells.length % 7 != 0) {
-cells.add(null);
-}
-
-return cells;
-}
-
 @override
 Widget build(BuildContext context) {
-// берем актуальную версию привычки из репо
 final current = _repo.getHabits().firstWhere(
 (h) => h.id == widget.habit.id,
 orElse: () => widget.habit,
 );
 
 final streak = _calcStreak(current.completedDates);
-
 final hasGoal = current.targetDays > 0;
 final doneToGoal = hasGoal ? min(streak, current.targetDays) : 0;
 final progress = hasGoal ? (doneToGoal / current.targetDays) : 0.0;
+final goalReached = hasGoal && streak >= current.targetDays;
 
 final now = DateTime.now();
-final todayKey = _keyFromDate(now);
-
 final cells = _buildMonthCells(_month);
+
+final reminderOn = current.reminderMinutes != null;
 
 return Scaffold(
 appBar: AppBar(title: const Text('Habit details')),
 body: ListView(
 padding: const EdgeInsets.all(16),
 children: [
-Text(
+Row(
+children: [
+Expanded(
+child: Text(
 current.title,
 style: Theme.of(context).textTheme.headlineSmall,
+),
+),
+if (goalReached)
+Container(
+padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+decoration: BoxDecoration(
+color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+borderRadius: BorderRadius.circular(999),
+),
+child: const Text('🎉 Goal reached'),
+)
+],
 ),
 const SizedBox(height: 6),
 Text(
 streak > 0 ? '🔥 $streak day streak' : 'No streak yet',
-style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-color: Colors.black54,
-),
+style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
 ),
 const SizedBox(height: 12),
 
@@ -194,10 +210,93 @@ value: progress.clamp(0.0, 1.0),
 minHeight: 10,
 ),
 ),
-const SizedBox(height: 16),
+const SizedBox(height: 12),
+Row(
+children: [
+Expanded(
+child: OutlinedButton.icon(
+onPressed: () async {
+await _repo.restartHabitProgress(current.id);
+if (!mounted) return;
+setState(() {});
+},
+icon: const Icon(Icons.restart_alt),
+label: const Text('Restart progress'),
+),
+),
+],
+),
+const SizedBox(height: 12),
 ],
 
-// ✅ календарь месяца
+// Reminder UI
+Row(
+children: [
+Expanded(
+child: Text(
+'Reminder',
+style: Theme.of(context).textTheme.titleMedium,
+),
+),
+Switch(
+value: reminderOn,
+onChanged: (v) async {
+if (!v) {
+await _repo.setReminderMinutes(current.id, null);
+} else {
+await _repo.setReminderMinutes(current.id, 20 * 60); // default 20:00
+}
+if (!mounted) return;
+setState(() {});
+},
+),
+],
+),
+if (reminderOn) ...[
+Row(
+children: [
+Expanded(
+child: Text(
+'Time: ${_formatMinutes(current.reminderMinutes!)}',
+style: Theme.of(context).textTheme.bodyMedium,
+),
+),
+OutlinedButton(
+onPressed: () async {
+final picked = await _pickTime(context, current.reminderMinutes!);
+if (picked == null) return;
+await _repo.setReminderMinutes(current.id, picked);
+if (!mounted) return;
+setState(() {});
+},
+child: const Text('Change'),
+),
+],
+),
+],
+
+const SizedBox(height: 12),
+
+// Archive / Unarchive
+Row(
+children: [
+Expanded(
+child: OutlinedButton.icon(
+onPressed: () async {
+await _repo.setArchived(current.id, !current.archived);
+if (!mounted) return;
+setState(() {});
+},
+icon: Icon(current.archived ? Icons.unarchive_outlined : Icons.archive_outlined),
+label: Text(current.archived ? 'Unarchive' : 'Archive'),
+),
+),
+],
+),
+
+const SizedBox(height: 18),
+
+// month calendar
 _monthHeader(),
 const SizedBox(height: 8),
 _weekdayRow(),
@@ -215,28 +314,26 @@ childAspectRatio: 1,
 ),
 itemBuilder: (context, index) {
 final date = cells[index];
-
-if (date == null) {
-return const SizedBox.shrink();
-}
+if (date == null) return const SizedBox.shrink();
 
 final key = _keyFromDate(date);
 final done = current.completedDates.contains(key);
 final isToday = _sameDay(date, now);
-final isThisMonth = date.month == _month.month;
 
-// (на всякий) скрытая защита, хотя date всегда текущий месяц
-if (!isThisMonth) {
-return const SizedBox.shrink();
-}
+// OPTIONAL: запретить отмечать будущие дни
+final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
 
 return InkWell(
 borderRadius: BorderRadius.circular(14),
-onTap: () async {
+onTap: isFuture
+? null
+: () async {
 await _repo.toggleDate(current.id, key);
 if (!mounted) return;
 setState(() {});
 },
+child: Opacity(
+opacity: isFuture ? 0.35 : 1,
 child: Container(
 decoration: BoxDecoration(
 borderRadius: BorderRadius.circular(14),
@@ -260,6 +357,7 @@ color: done ? Colors.white : Colors.black87,
 ),
 ),
 ),
+),
 );
 },
 ),
@@ -267,10 +365,7 @@ color: done ? Colors.white : Colors.black87,
 const SizedBox(height: 18),
 Text(
 'Tip: tap any day to add/remove a check-in.',
-style: Theme.of(context)
-.textTheme
-.bodySmall
-?.copyWith(color: Colors.black54),
+style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
 ),
 ],
 ),

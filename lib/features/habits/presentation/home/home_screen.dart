@@ -12,7 +12,7 @@ import 'widgets/daily_progress_card.dart';
 import 'widgets/habit_tile.dart';
 import 'widgets/today_header.dart';
 
-enum _HomeMenuAction { markAllDone, resetToday }
+enum _HomeMenuAction { markAllDone, resetToday, toggleArchived }
 enum _HabitFilter { all, active, completed }
 
 class HomeScreen extends StatefulWidget {
@@ -27,6 +27,7 @@ final HabitRepository _repo = HabitRepository();
 late final Future<void> _initFuture = _repo.init();
 
 _HabitFilter _filter = _HabitFilter.all;
+bool _showArchived = false;
 
 List<Habit> get _habits => _repo.getHabits();
 
@@ -52,10 +53,11 @@ if (result == null) return;
 
 final title = (result['title'] as String?)?.trim() ?? '';
 final targetDays = (result['targetDays'] as int?) ?? 0;
+final reminderMinutes = (result['reminderMinutes'] as int?);
 
 if (title.isEmpty) return;
 
-await _repo.addHabit(title, targetDays);
+await _repo.addHabit(title, targetDays, reminderMinutes);
 if (!mounted) return;
 setState(() {});
 }
@@ -67,6 +69,7 @@ MaterialPageRoute(
 builder: (_) => AddHabitScreen(
 initialTitle: habit.title,
 initialTargetDays: habit.targetDays,
+initialReminderMinutes: habit.reminderMinutes,
 ),
 ),
 );
@@ -75,12 +78,16 @@ if (result == null) return;
 
 final newTitle = (result['title'] as String?)?.trim() ?? '';
 final newTargetDays = (result['targetDays'] as int?) ?? habit.targetDays;
+final newReminder = (result['reminderMinutes'] as int?);
 
 if (newTitle.isNotEmpty && newTitle != habit.title) {
 await _repo.renameHabit(habit.id, newTitle);
 }
 if (newTargetDays != habit.targetDays) {
 await _repo.setTargetDays(habit.id, newTargetDays);
+}
+if (newReminder != habit.reminderMinutes) {
+await _repo.setReminderMinutes(habit.id, newReminder);
 }
 
 if (!mounted) return;
@@ -92,7 +99,6 @@ Navigator.push(
 context,
 MaterialPageRoute(builder: (_) => HabitDetailScreen(habit: habit)),
 ).then((_) {
-// вернулись назад -> обновим UI (на случай если меняли даты)
 if (!mounted) return;
 setState(() {});
 });
@@ -156,6 +162,9 @@ await _repo.resetToday();
 if (!mounted) return;
 setState(() {});
 break;
+case _HomeMenuAction.toggleArchived:
+setState(() => _showArchived = !_showArchived);
+break;
 }
 }
 
@@ -209,7 +218,9 @@ body: Center(child: Text('Error: ${snap.error}')),
 
 final todayKey = _todayKey();
 
-final sorted = List<Habit>.from(_habits)
+final base = _showArchived ? _habits : _habits.where((h) => !h.archived).toList();
+
+final sorted = List<Habit>.from(base)
 ..sort((a, b) {
 final ad = a.completedDates.contains(todayKey) ? 1 : 0;
 final bd = b.completedDates.contains(todayKey) ? 1 : 0;
@@ -229,8 +240,7 @@ return doneToday;
 }
 }).toList();
 
-final completed =
-sorted.where((h) => h.completedDates.contains(todayKey)).length;
+final completed = sorted.where((h) => h.completedDates.contains(todayKey)).length;
 
 final headerRow = Row(
 children: [
@@ -243,14 +253,18 @@ icon: const Icon(Icons.bar_chart_rounded),
 PopupMenuButton<_HomeMenuAction>(
 tooltip: 'Menu',
 onSelected: _onMenuSelected,
-itemBuilder: (context) => const [
-PopupMenuItem(
+itemBuilder: (context) => [
+const PopupMenuItem(
 value: _HomeMenuAction.markAllDone,
 child: Text('Mark all done (today)'),
 ),
-PopupMenuItem(
+const PopupMenuItem(
 value: _HomeMenuAction.resetToday,
 child: Text('Reset today'),
+),
+PopupMenuItem(
+value: _HomeMenuAction.toggleArchived,
+child: Text(_showArchived ? 'Hide archived' : 'Show archived'),
 ),
 ],
 child: const Padding(
@@ -287,8 +301,7 @@ total: sorted.length,
 const SizedBox(height: 12),
 if (filtered.isEmpty)
 const Padding(
-padding:
-EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+padding: EdgeInsets.symmetric(horizontal: 16, vertical: 24),
 child: Text('Nothing here 👀'),
 )
 else
