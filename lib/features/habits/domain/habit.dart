@@ -1,62 +1,96 @@
 class Habit {
-  final String id;
-  final String title;
+final String id;
+final String title;
 
-  final bool doneToday;
+/// Фактические даты выполнения, например {"2026-02-24", "2026-02-23"}
+final Set<String> completedDates;
 
-  /// сколько дней подряд выполнено
-  final int streak;
+/// цель/срок в днях. 0 = без срока
+final int targetDays;
 
-  /// дата последнего выполнения yyyy-MM-dd
-  final String lastCompletedDate;
+const Habit({
+required this.id,
+required this.title,
+required this.completedDates,
+required this.targetDays,
+});
 
-  /// цель/срок в днях. 0 = без срока
-  final int targetDays;
+Habit copyWith({
+String? id,
+String? title,
+Set<String>? completedDates,
+int? targetDays,
+}) {
+return Habit(
+id: id ?? this.id,
+title: title ?? this.title,
+completedDates: completedDates ?? this.completedDates,
+targetDays: targetDays ?? this.targetDays,
+);
+}
 
-  const Habit({
-    required this.id,
-    required this.title,
-    required this.doneToday,
-    required this.streak,
-    required this.lastCompletedDate,
-    required this.targetDays,
-  });
+Map<String, dynamic> toJson() => {
+'id': id,
+'title': title,
+'completedDates': completedDates.toList(),
+'targetDays': targetDays,
+};
 
-  Habit copyWith({
-    String? id,
-    String? title,
-    bool? doneToday,
-    int? streak,
-    String? lastCompletedDate,
-    int? targetDays,
-  }) {
-    return Habit(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      doneToday: doneToday ?? this.doneToday,
-      streak: streak ?? this.streak,
-      lastCompletedDate: lastCompletedDate ?? this.lastCompletedDate,
-      targetDays: targetDays ?? this.targetDays,
-    );
-  }
+static Habit fromJson(Map<String, dynamic> json) {
+final rawDates = json['completedDates'];
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'doneToday': doneToday,
-        'streak': streak,
-        'lastCompletedDate': lastCompletedDate,
-        'targetDays': targetDays,
-      };
+Set<String> dates = {};
+if (rawDates is List) {
+dates = rawDates.whereType<String>().toSet();
+}
 
-  static Habit fromJson(Map<String, dynamic> json) {
-    return Habit(
-      id: (json['id'] as String?) ?? '',
-      title: (json['title'] as String?) ?? '',
-      doneToday: (json['doneToday'] as bool?) ?? false,
-      streak: (json['streak'] as int?) ?? 0,
-      lastCompletedDate: (json['lastCompletedDate'] as String?) ?? '',
-      targetDays: (json['targetDays'] as int?) ?? 0,
-    );
-  }
+// ✅ МИГРАЦИЯ со старой версии (streak/doneToday/lastCompletedDate)
+// Если completedDates пустой, попробуем восстановить по старым полям.
+if (dates.isEmpty) {
+final oldStreak = (json['streak'] as int?) ?? 0;
+final oldDoneToday = (json['doneToday'] as bool?) ?? false;
+final oldLast = (json['lastCompletedDate'] as String?) ?? '';
+
+DateTime? endDate;
+if (oldLast.isNotEmpty) {
+endDate = _tryParseYmd(oldLast);
+}
+endDate ??= DateTime.now();
+
+// Если раньше было doneToday=true — считаем, что выполнено в endDate (обычно сегодня)
+if (oldDoneToday || oldLast.isNotEmpty || oldStreak > 0) {
+final streakToRebuild = oldStreak > 0 ? oldStreak : 1;
+final capped = streakToRebuild.clamp(1, 365); // чтобы не раздувать до бесконечности
+
+for (int i = 0; i < capped; i++) {
+final d = endDate.subtract(Duration(days: i));
+dates.add(_ymd(d));
+}
+}
+}
+
+return Habit(
+id: (json['id'] as String?) ?? '',
+title: (json['title'] as String?) ?? '',
+completedDates: dates,
+targetDays: (json['targetDays'] as int?) ?? 0,
+);
+}
+
+// -------- helpers (private) --------
+
+static String _ymd(DateTime d) {
+String two(int n) => n.toString().padLeft(2, '0');
+return '${d.year}-${two(d.month)}-${two(d.day)}';
+}
+
+static DateTime? _tryParseYmd(String s) {
+final parts = s.split('-');
+if (parts.length != 3) return null;
+final y = int.tryParse(parts[0]);
+final m = int.tryParse(parts[1]);
+final d = int.tryParse(parts[2]);
+if (y == null || m == null || d == null) return null;
+return DateTime(y, m, d);
+}
 }
