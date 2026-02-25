@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:habit_dashboard/core/constants/app_strings.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/empty_state.dart';
@@ -7,12 +8,14 @@ import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/habit_detail/habit_detail_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/stats/stats_screen.dart';
+import 'package:habit_dashboard/app/app.dart';
+
 
 import 'widgets/daily_progress_card.dart';
 import 'widgets/habit_tile.dart';
 import 'widgets/today_header.dart';
 
-enum _HomeMenuAction { markAllDone, resetToday, toggleArchived }
+enum _HomeMenuAction { markAllDone, resetToday, toggleArchived, toggleTheme }
 enum _HabitFilter { all, active, completed }
 
 class HomeScreen extends StatefulWidget {
@@ -46,10 +49,119 @@ String two(int n) => n.toString().padLeft(2, '0');
 return '${now.year}-${two(now.month)}-${two(now.day)}';
 }
 
-Future<void> _toggle(String id) async {
-await _repo.toggleHabit(id);
+String _keyFromDate(DateTime d) {
+String two(int n) => n.toString().padLeft(2, '0');
+return '${d.year}-${two(d.month)}-${two(d.day)}';
+}
+
+int _calcStreak(Set<String> dates) {
+final now = DateTime.now();
+int count = 0;
+while (true) {
+final d = now.subtract(Duration(days: count));
+final key = _keyFromDate(d);
+if (!dates.contains(key)) break;
+count++;
+}
+return count;
+}
+
+Future<void> _toggle(Habit habit) async {
+// до изменения
+final beforeStreak = _calcStreak(habit.completedDates);
+final beforeReached = habit.targetDays > 0 && beforeStreak >= habit.targetDays;
+
+await _repo.toggleHabit(habit.id);
+
+// после изменения
+final updated = _repo.getHabits().firstWhere(
+(h) => h.id == habit.id,
+orElse: () => habit,
+);
+
+final afterStreak = _calcStreak(updated.completedDates);
+final afterReached = updated.targetDays > 0 && afterStreak >= updated.targetDays;
+
+// ✅ haptic на действие
+HapticFeedback.lightImpact();
+
+// ✅ анимацию показываем ТОЛЬКО если цель достигнута впервые (перешли через порог)
+if (!beforeReached && afterReached) {
+_showGoalReachedDialog(updated.title);
+}
+
 if (!mounted) return;
 setState(() {});
+}
+
+void _showGoalReachedDialog(String title) {
+// более “сильная” вибрация на achievement
+HapticFeedback.heavyImpact();
+
+showGeneralDialog(
+context: context,
+barrierDismissible: true,
+barrierLabel: 'Goal reached',
+transitionDuration: const Duration(milliseconds: 420),
+pageBuilder: (context, a1, a2) {
+return Center(
+child: Material(
+color: Colors.transparent,
+child: TweenAnimationBuilder<double>(
+tween: Tween(begin: 0.75, end: 1.0),
+duration: const Duration(milliseconds: 420),
+curve: Curves.elasticOut,
+builder: (context, scale, child) {
+return Transform.scale(scale: scale, child: child);
+},
+child: Container(
+padding: const EdgeInsets.all(22),
+margin: const EdgeInsets.symmetric(horizontal: 28),
+decoration: BoxDecoration(
+color: Theme.of(context).colorScheme.surface,
+borderRadius: BorderRadius.circular(24),
+boxShadow: [
+BoxShadow(
+blurRadius: 24,
+color: Colors.black.withOpacity(0.18),
+),
+],
+),
+child: Column(
+mainAxisSize: MainAxisSize.min,
+children: [
+const Text('🎉', style: TextStyle(fontSize: 60)),
+const SizedBox(height: 10),
+Text(
+'Goal reached!',
+style: Theme.of(context).textTheme.titleLarge?.copyWith(
+fontWeight: FontWeight.w800,
+),
+),
+const SizedBox(height: 8),
+Text(
+title,
+textAlign: TextAlign.center,
+style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+color: Colors.black54,
+),
+),
+const SizedBox(height: 14),
+SizedBox(
+width: double.infinity,
+child: FilledButton(
+onPressed: () => Navigator.pop(context),
+child: const Text('Nice 😈'),
+),
+),
+],
+),
+),
+),
+),
+);
+},
+);
 }
 
 Future<void> _openAddHabit() async {
@@ -163,16 +275,24 @@ Future<void> _onMenuSelected(_HomeMenuAction action) async {
 switch (action) {
 case _HomeMenuAction.markAllDone:
 await _repo.markAllDoneToday();
+HapticFeedback.lightImpact();
 if (!mounted) return;
 setState(() {});
 break;
 case _HomeMenuAction.resetToday:
 await _repo.resetToday();
+HapticFeedback.lightImpact();
 if (!mounted) return;
 setState(() {});
 break;
 case _HomeMenuAction.toggleArchived:
+HapticFeedback.selectionClick();
 setState(() => _showArchived = !_showArchived);
+break;
+
+case _HomeMenuAction.toggleTheme:
+HapticFeedback.selectionClick();
+MyApp.of(context)?.toggleDarkMode();
 break;
 }
 }
@@ -253,12 +373,13 @@ body: Center(child: Text('Error: ${snap.error}')),
 }
 
 final todayKey = _todayKey();
+
 final base = _showArchived ? _habits : _habits.where((h) => !h.archived).toList();
 
-// Keep current order; don't sort now (drag&drop defines order)
+// ⚠️ Важно: НЕ сортим, потому что порядок задается drag&drop
 final list = List<Habit>.from(base);
 
-// Apply filter + search without changing underlying order
+// filter + search (не меняем порядок)
 final visible = list.where((h) {
 final doneToday = h.completedDates.contains(todayKey);
 
@@ -275,7 +396,6 @@ return h.title.toLowerCase().contains(_query);
 
 final visibleIds = visible.map((h) => h.id).toList();
 
-// Progress is based on visible base list (not filtered list) — feels consistent
 final completed = list.where((h) => h.completedDates.contains(todayKey)).length;
 
 final headerRow = Row(
@@ -301,6 +421,10 @@ child: Text('Reset today'),
 PopupMenuItem(
 value: _HomeMenuAction.toggleArchived,
 child: Text(_showArchived ? 'Hide archived' : 'Show archived'),
+),
+const PopupMenuItem(
+value: _HomeMenuAction.toggleTheme,
+child: Text('Toggle dark mode'),
 ),
 ],
 child: const Padding(
@@ -354,6 +478,7 @@ padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
 itemCount: visible.length,
 onReorder: (oldIndex, newIndex) async {
 await _repo.reorderByIds(oldIndex, newIndex, visibleIds);
+HapticFeedback.mediumImpact(); // ✅ haptic на drag
 if (!mounted) return;
 setState(() {});
 },
@@ -375,7 +500,7 @@ child: Icon(Icons.drag_handle),
 Expanded(
 child: HabitTile(
 habit: h,
-onToggle: () => _toggle(h.id),
+onToggle: () => _toggle(h),
 onOpenDetails: () => _openDetails(h),
 onEdit: () => _openEditHabit(h),
 onDelete: () => _confirmAndRemoveWithUndo(h),

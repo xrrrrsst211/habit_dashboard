@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
 class HabitTile extends StatelessWidget {
@@ -29,27 +30,34 @@ final streak = _calcStreak(habit.completedDates);
 final last7 = _last7Keys();
 
 final hasGoal = habit.targetDays > 0;
+final goalReached = hasGoal && streak >= habit.targetDays;
+
 final goalDone = hasGoal ? min(streak, habit.targetDays) : 0;
 final goalProgress =
 hasGoal ? (goalDone / habit.targetDays).clamp(0.0, 1.0) : 0.0;
 
-final goalReached = hasGoal && streak >= habit.targetDays;
-
 return Card(
 child: InkWell(
 borderRadius: BorderRadius.circular(16),
-onTap: onToggle,
+onTap: () {
+HapticFeedback.lightImpact(); // ✅ haptic on toggle
+onToggle();
+},
 child: Padding(
 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
 child: Row(
 children: [
-Icon(doneToday ? Icons.check_circle : Icons.circle_outlined, size: 26),
+Icon(
+doneToday ? Icons.check_circle : Icons.circle_outlined,
+size: 26,
+),
 const SizedBox(width: 12),
+
 Expanded(
 child: Column(
 crossAxisAlignment: CrossAxisAlignment.start,
 children: [
-// title row + goal reached chip
+// title row + reached chip
 Row(
 children: [
 Expanded(
@@ -78,8 +86,10 @@ style: Theme.of(context)
 ),
 ],
 ),
+
 const SizedBox(height: 6),
 
+// 7 day dots
 _WeekDotsByDates(
 last7Keys: last7,
 completedDates: habit.completedDates,
@@ -142,19 +152,29 @@ minHeight: 8,
 ),
 ),
 
+// actions
 IconButton(
 tooltip: 'Details',
-onPressed: onOpenDetails,
+onPressed: () {
+HapticFeedback.selectionClick();
+onOpenDetails();
+},
 icon: const Icon(Icons.info_outline),
 ),
 IconButton(
 tooltip: 'Edit',
-onPressed: onEdit,
+onPressed: () {
+HapticFeedback.selectionClick();
+onEdit();
+},
 icon: const Icon(Icons.edit_outlined),
 ),
 IconButton(
 tooltip: 'Delete',
-onPressed: onDelete,
+onPressed: () {
+HapticFeedback.selectionClick();
+onDelete();
+},
 icon: const Icon(Icons.delete_outline),
 ),
 ],
