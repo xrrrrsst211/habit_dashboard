@@ -11,6 +11,12 @@ class Habit {
   /// Goal in days. 0 = no limit
   final int targetDays;
 
+  /// Weekly goal: how many completions per week. 0 = off
+  ///
+  /// If this is > 0, the UI should treat it as the primary goal type.
+  /// (We keep [targetDays] for existing functionality / backwards compatibility.)
+  final int weeklyTarget;
+
   /// Archived?
   final bool archived;
 
@@ -23,6 +29,7 @@ class Habit {
     required this.completedDates,
     required this.bestStreak,
     required this.targetDays,
+    required this.weeklyTarget,
     required this.archived,
     required this.reminderMinutes,
   });
@@ -33,6 +40,7 @@ class Habit {
     Set<String>? completedDates,
     int? bestStreak,
     int? targetDays,
+    int? weeklyTarget,
     bool? archived,
     int? reminderMinutes,
   }) {
@@ -42,6 +50,7 @@ class Habit {
       completedDates: completedDates ?? this.completedDates,
       bestStreak: bestStreak ?? this.bestStreak,
       targetDays: targetDays ?? this.targetDays,
+      weeklyTarget: weeklyTarget ?? this.weeklyTarget,
       archived: archived ?? this.archived,
       reminderMinutes: reminderMinutes ?? this.reminderMinutes,
     );
@@ -53,6 +62,7 @@ class Habit {
         'completedDates': completedDates.toList(),
         'bestStreak': bestStreak,
         'targetDays': targetDays,
+        'weeklyTarget': weeklyTarget,
         'archived': archived,
         'reminderMinutes': reminderMinutes,
       };
@@ -95,6 +105,7 @@ class Habit {
       completedDates: dates,
       bestStreak: best,
       targetDays: (json['targetDays'] as int?) ?? 0,
+      weeklyTarget: (json['weeklyTarget'] as int?) ?? 0,
       archived: (json['archived'] as bool?) ?? false,
       reminderMinutes: (json['reminderMinutes'] as int?),
     );

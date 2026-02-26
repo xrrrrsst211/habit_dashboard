@@ -76,9 +76,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return count;
   }
 
+  int _countThisWeek(Set<String> dates) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - DateTime.monday));
+
+    int count = 0;
+    for (int i = 0; i < 7; i++) {
+      final d = start.add(Duration(days: i));
+      if (dates.contains(_keyFromDate(d))) count++;
+    }
+    return count;
+  }
+
   Future<void> _toggle(Habit habit) async {
     final beforeStreak = _calcStreak(habit.completedDates);
-    final beforeReached = habit.targetDays > 0 && beforeStreak >= habit.targetDays;
+    final beforeReachedDuration =
+        habit.targetDays > 0 && beforeStreak >= habit.targetDays;
+    final beforeReachedWeekly = habit.weeklyTarget > 0 &&
+        _countThisWeek(habit.completedDates) >= habit.weeklyTarget;
 
     await _repo.toggleHabit(habit.id);
 
@@ -88,11 +104,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     final afterStreak = _calcStreak(updated.completedDates);
-    final afterReached = updated.targetDays > 0 && afterStreak >= updated.targetDays;
+    final afterReachedDuration =
+        updated.targetDays > 0 && afterStreak >= updated.targetDays;
+    final afterReachedWeekly = updated.weeklyTarget > 0 &&
+        _countThisWeek(updated.completedDates) >= updated.weeklyTarget;
 
     HapticFeedback.lightImpact();
 
-    if (!beforeReached && afterReached) {
+    if ((!beforeReachedDuration && afterReachedDuration) ||
+        (!beforeReachedWeekly && afterReachedWeekly)) {
       _showGoalReachedDialog(updated.title);
     }
 
@@ -182,11 +202,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final title = (result['title'] as String?)?.trim() ?? '';
     final targetDays = (result['targetDays'] as int?) ?? 0;
+    final weeklyTarget = (result['weeklyTarget'] as int?) ?? 0;
     final reminderMinutes = (result['reminderMinutes'] as int?);
 
     if (title.isEmpty) return;
 
-    await _repo.addHabit(title, targetDays, reminderMinutes);
+    await _repo.addHabit(title, targetDays, weeklyTarget, reminderMinutes);
     if (!mounted) return;
     setState(() {});
   }
@@ -198,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => AddHabitScreen(
           initialTitle: habit.title,
           initialTargetDays: habit.targetDays,
+          initialWeeklyTarget: habit.weeklyTarget,
           initialReminderMinutes: habit.reminderMinutes,
         ),
       ),
@@ -207,6 +229,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final newTitle = (result['title'] as String?)?.trim() ?? '';
     final newTargetDays = (result['targetDays'] as int?) ?? habit.targetDays;
+    final newWeeklyTarget =
+        (result['weeklyTarget'] as int?) ?? habit.weeklyTarget;
     final newReminder = (result['reminderMinutes'] as int?);
 
     if (newTitle.isNotEmpty && newTitle != habit.title) {
@@ -214,6 +238,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (newTargetDays != habit.targetDays) {
       await _repo.setTargetDays(habit.id, newTargetDays);
+    }
+    if (newWeeklyTarget != habit.weeklyTarget) {
+      await _repo.setWeeklyTarget(habit.id, newWeeklyTarget);
     }
     if (newReminder != habit.reminderMinutes) {
       await _repo.setReminderMinutes(habit.id, newReminder);

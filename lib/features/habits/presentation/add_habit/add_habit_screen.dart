@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 class AddHabitScreen extends StatefulWidget {
   final String? initialTitle;
   final int? initialTargetDays;
+  final int? initialWeeklyTarget;
   final int? initialReminderMinutes;
 
   const AddHabitScreen({
     super.key,
     this.initialTitle,
     this.initialTargetDays,
+    this.initialWeeklyTarget,
     this.initialReminderMinutes,
   });
 
@@ -20,18 +22,24 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   late final TextEditingController _controller;
 
   late int _targetDays;
+  late int _weeklyTarget;
   int? _reminderMinutes;
 
   bool get _isEdit => (widget.initialTitle ?? '').trim().isNotEmpty;
 
   static const _options = <int>[0, 7, 14, 21, 30, 60, 90];
+  static const _weeklyOptions = <int>[0, 1, 2, 3, 4, 5, 6, 7];
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialTitle ?? '');
     _targetDays = widget.initialTargetDays ?? 0;
+    _weeklyTarget = widget.initialWeeklyTarget ?? 0;
     _reminderMinutes = widget.initialReminderMinutes;
+
+    // Keep goals mutually exclusive.
+    if (_weeklyTarget > 0) _targetDays = 0;
   }
 
   String _labelFor(int d) {
@@ -67,8 +75,15 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     Navigator.pop(context, {
       'title': title,
       'targetDays': _targetDays,
+      'weeklyTarget': _weeklyTarget,
       'reminderMinutes': _reminderMinutes, // null = off
     });
+  }
+
+  String _weeklyLabelFor(int n) {
+    if (n == 0) return 'Off';
+    if (n == 1) return '1 time / week';
+    return '$n times / week';
   }
 
   @override
@@ -102,24 +117,56 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Goal duration',
+                'Goals',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             const SizedBox(height: 8),
+            // Weekly goal (new)
+            DropdownButtonFormField<int>(
+              value: _weeklyTarget,
+              items: _weeklyOptions
+                  .map(
+                    (v) => DropdownMenuItem<int>(
+                      value: v,
+                      child: Text('Weekly goal: ${_weeklyLabelFor(v)}'),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() {
+                  _weeklyTarget = v;
+                  if (_weeklyTarget > 0) {
+                    // Weekly goal wins.
+                    _targetDays = 0;
+                  }
+                });
+              },
+              decoration: const InputDecoration(),
+            ),
+
+            const SizedBox(height: 10),
+            // Duration goal (existing)
             DropdownButtonFormField<int>(
               value: _targetDays,
               items: _options
                   .map(
                     (d) => DropdownMenuItem<int>(
                       value: d,
-                      child: Text(_labelFor(d)),
+                      child: Text('Duration goal: ${_labelFor(d)}'),
                     ),
                   )
                   .toList(),
               onChanged: (v) {
                 if (v == null) return;
-                setState(() => _targetDays = v);
+                setState(() {
+                  _targetDays = v;
+                  if (_targetDays > 0) {
+                    // Duration goal wins.
+                    _weeklyTarget = 0;
+                  }
+                });
               },
               decoration: const InputDecoration(),
             ),

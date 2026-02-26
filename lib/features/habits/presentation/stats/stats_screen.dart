@@ -33,6 +33,18 @@ class StatsScreen extends StatelessWidget {
     return count;
   }
 
+  int _countThisWeek(Set<String> dates) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - DateTime.monday));
+    int count = 0;
+    for (int i = 0; i < 7; i++) {
+      final d = start.add(Duration(days: i));
+      if (dates.contains(_keyFromDate(d))) count++;
+    }
+    return count;
+  }
+
   @override
   Widget build(BuildContext context) {
     final todayKey = _todayKey();
@@ -48,10 +60,15 @@ class StatsScreen extends StatelessWidget {
       if (s > bestStreak) bestStreak = s;
     }
 
-    final goalsTotal = habits.where((h) => h.targetDays > 0).length;
+    final goalsTotal = habits.where((h) => h.targetDays > 0 || h.weeklyTarget > 0).length;
     final goalsReached = habits.where((h) {
-      if (h.targetDays <= 0) return false;
-      return _calcStreak(h.completedDates) >= h.targetDays;
+      if (h.weeklyTarget > 0) {
+        return _countThisWeek(h.completedDates) >= h.weeklyTarget;
+      }
+      if (h.targetDays > 0) {
+        return _calcStreak(h.completedDates) >= h.targetDays;
+      }
+      return false;
     }).length;
 
     // Week completion: total check-ins over the last 7 days / (7 * habits)

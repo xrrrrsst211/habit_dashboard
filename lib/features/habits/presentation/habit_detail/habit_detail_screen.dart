@@ -55,6 +55,18 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     return count;
   }
 
+  int _countThisWeek(Set<String> dates) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - DateTime.monday));
+    int count = 0;
+    for (int i = 0; i < 7; i++) {
+      final d = start.add(Duration(days: i));
+      if (dates.contains(_keyFromDate(d))) count++;
+    }
+    return count;
+  }
+
   String _monthTitle(DateTime m) {
     const names = [
       'January','February','March','April','May','June',
@@ -163,6 +175,15 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     );
 
     final streak = _calcStreak(current.completedDates);
+
+    final hasWeeklyGoal = current.weeklyTarget > 0;
+    final thisWeekDone = _countThisWeek(current.completedDates);
+    final weeklyProgress = hasWeeklyGoal
+        ? (min(thisWeekDone, current.weeklyTarget) / current.weeklyTarget)
+            .clamp(0.0, 1.0)
+        : 0.0;
+    final weeklyReached = hasWeeklyGoal && thisWeekDone >= current.weeklyTarget;
+
     final hasGoal = current.targetDays > 0;
     final doneToGoal = hasGoal ? min(streak, current.targetDays) : 0;
     final progress = hasGoal ? (doneToGoal / current.targetDays) : 0.0;
@@ -186,7 +207,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
-              if (goalReached)
+              if (goalReached || weeklyReached)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
@@ -207,17 +228,30 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           ),
           const SizedBox(height: 12),
 
-          if (hasGoal) ...[
-            Text('Goal: $doneToGoal / ${current.targetDays} days'),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress.clamp(0.0, 1.0),
-                minHeight: 10,
+          if (hasWeeklyGoal || hasGoal) ...[
+            if (hasWeeklyGoal) ...[
+              Text('Weekly goal: $thisWeekDone / ${current.weeklyTarget} this week'),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: weeklyProgress,
+                  minHeight: 10,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
+            ] else ...[
+              Text('Goal: $doneToGoal / ${current.targetDays} days'),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress.clamp(0.0, 1.0),
+                  minHeight: 10,
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(

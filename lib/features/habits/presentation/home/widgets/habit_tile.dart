@@ -31,6 +31,14 @@ class HabitTile extends StatelessWidget {
     final streak = _calcStreak(habit.completedDates);
     final last7 = _last7Keys();
 
+    final thisWeekDone = _countThisWeek(habit.completedDates);
+    final hasWeeklyGoal = habit.weeklyTarget > 0;
+    final weeklyReached = hasWeeklyGoal && thisWeekDone >= habit.weeklyTarget;
+    final weeklyProgress = hasWeeklyGoal
+        ? (min(thisWeekDone, habit.weeklyTarget) / habit.weeklyTarget)
+            .clamp(0.0, 1.0)
+        : 0.0;
+
     final hasGoal = habit.targetDays > 0;
     final goalReached = hasGoal && streak >= habit.targetDays;
 
@@ -69,7 +77,7 @@ class HabitTile extends StatelessWidget {
                                 ),
                           ),
                         ),
-                        if (goalReached)
+                        if (goalReached || weeklyReached)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -115,6 +123,14 @@ class HabitTile extends StatelessWidget {
                                 .bodySmall
                                 ?.copyWith(color: secondaryColor),
                           ),
+                        if (hasWeeklyGoal)
+                          Text(
+                            '• $thisWeekDone/${habit.weeklyTarget} this week',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: secondaryColor),
+                          ),
                         if (habit.reminderMinutes != null)
                           Row(
                             mainAxisSize: MainAxisSize.min,
@@ -132,7 +148,16 @@ class HabitTile extends StatelessWidget {
                           ),
                       ],
                     ),
-                    if (hasGoal) ...[
+                    if (hasWeeklyGoal) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(999),
+                        child: LinearProgressIndicator(
+                          value: weeklyProgress,
+                          minHeight: 8,
+                        ),
+                      ),
+                    ] else if (hasGoal) ...[
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
@@ -199,6 +224,18 @@ class HabitTile extends StatelessWidget {
       final key = _keyFromDate(d);
       if (!dates.contains(key)) break;
       count++;
+    }
+    return count;
+  }
+
+  int _countThisWeek(Set<String> dates) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - DateTime.monday));
+    int count = 0;
+    for (int i = 0; i < 7; i++) {
+      final d = start.add(Duration(days: i));
+      if (dates.contains(_keyFromDate(d))) count++;
     }
     return count;
   }

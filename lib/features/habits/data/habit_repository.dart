@@ -29,6 +29,7 @@ class HabitRepository {
               completedDates: <String>{},
               bestStreak: 0,
               targetDays: 21,
+              weeklyTarget: 0,
               archived: false,
               reminderMinutes: null,
             ),
@@ -38,6 +39,7 @@ class HabitRepository {
               completedDates: <String>{},
               bestStreak: 0,
               targetDays: 30,
+              weeklyTarget: 0,
               archived: false,
               reminderMinutes: null,
             ),
@@ -47,6 +49,7 @@ class HabitRepository {
               completedDates: <String>{},
               bestStreak: 0,
               targetDays: 0,
+              weeklyTarget: 0,
               archived: false,
               reminderMinutes: null,
             ),
@@ -56,6 +59,7 @@ class HabitRepository {
               completedDates: <String>{},
               bestStreak: 0,
               targetDays: 14,
+              weeklyTarget: 0,
               archived: false,
               reminderMinutes: null,
             ),
@@ -157,7 +161,12 @@ class HabitRepository {
     await _save(prefs);
   }
 
-  Future<void> addHabit(String title, int targetDays, int? reminderMinutes) async {
+  Future<void> addHabit(
+    String title,
+    int targetDays,
+    int weeklyTarget,
+    int? reminderMinutes,
+  ) async {
     final t = title.trim();
     if (t.isEmpty) return;
 
@@ -167,12 +176,17 @@ class HabitRepository {
     final newId =
         '${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 20)}';
 
+    // Keep the goals mutually exclusive: weeklyTarget wins if set.
+    final normalizedWeekly = weeklyTarget.clamp(0, 7);
+    final normalizedTargetDays = normalizedWeekly > 0 ? 0 : targetDays;
+
     final habit = Habit(
       id: newId,
       title: t,
       completedDates: <String>{},
       bestStreak: 0,
-      targetDays: targetDays,
+      targetDays: normalizedTargetDays,
+      weeklyTarget: normalizedWeekly,
       archived: false,
       reminderMinutes: reminderMinutes,
     );
@@ -243,8 +257,30 @@ class HabitRepository {
     final i = _habits.indexWhere((h) => h.id == id);
     if (i == -1) return;
 
-    _habits[i] = _habits[i].copyWith(targetDays: targetDays);
+    // If user sets a duration goal, disable weekly goal.
+    final updated = _habits[i].copyWith(
+      targetDays: targetDays,
+      weeklyTarget: targetDays > 0 ? 0 : _habits[i].weeklyTarget,
+    );
+    _habits[i] = updated;
     final prefs = await SharedPreferences.getInstance();
+    await _save(prefs);
+  }
+
+  Future<void> setWeeklyTarget(String id, int weeklyTarget) async {
+    final i = _habits.indexWhere((h) => h.id == id);
+    if (i == -1) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // If user sets a weekly goal, disable duration goal.
+    final normalizedWeekly = weeklyTarget.clamp(0, 7);
+    final updated = _habits[i].copyWith(
+      weeklyTarget: normalizedWeekly,
+      targetDays: normalizedWeekly > 0 ? 0 : _habits[i].targetDays,
+    );
+    _habits[i] = updated;
+
     await _save(prefs);
   }
 
