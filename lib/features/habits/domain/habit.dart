@@ -1,106 +1,157 @@
 class Habit {
-final String id;
-final String title;
+  final String id;
+  final String title;
 
-/// Фактические даты выполнения: {"yyyy-MM-dd", ...}
-final Set<String> completedDates;
+  /// Fact completion dates: {"yyyy-MM-dd", ...}
+  final Set<String> completedDates;
 
-/// цель в днях. 0 = без срока
-final int targetDays;
+  /// Best (max) streak across all time.
+  final int bestStreak;
 
-/// архивировано ли
-final bool archived;
+  /// Goal in days. 0 = no limit
+  final int targetDays;
 
-/// напоминание: минуты от 00:00 (например 20:30 = 1230). null = off
-final int? reminderMinutes;
+  /// Archived?
+  final bool archived;
 
-const Habit({
-required this.id,
-required this.title,
-required this.completedDates,
-required this.targetDays,
-required this.archived,
-required this.reminderMinutes,
-});
+  /// Reminder: minutes from 00:00 (e.g. 20:30 = 1230). null = off
+  final int? reminderMinutes;
 
-Habit copyWith({
-String? id,
-String? title,
-Set<String>? completedDates,
-int? targetDays,
-bool? archived,
-int? reminderMinutes,
-}) {
-return Habit(
-id: id ?? this.id,
-title: title ?? this.title,
-completedDates: completedDates ?? this.completedDates,
-targetDays: targetDays ?? this.targetDays,
-archived: archived ?? this.archived,
-reminderMinutes: reminderMinutes ?? this.reminderMinutes,
-);
-}
+  const Habit({
+    required this.id,
+    required this.title,
+    required this.completedDates,
+    required this.bestStreak,
+    required this.targetDays,
+    required this.archived,
+    required this.reminderMinutes,
+  });
 
-Map<String, dynamic> toJson() => {
-'id': id,
-'title': title,
-'completedDates': completedDates.toList(),
-'targetDays': targetDays,
-'archived': archived,
-'reminderMinutes': reminderMinutes,
-};
+  Habit copyWith({
+    String? id,
+    String? title,
+    Set<String>? completedDates,
+    int? bestStreak,
+    int? targetDays,
+    bool? archived,
+    int? reminderMinutes,
+  }) {
+    return Habit(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      completedDates: completedDates ?? this.completedDates,
+      bestStreak: bestStreak ?? this.bestStreak,
+      targetDays: targetDays ?? this.targetDays,
+      archived: archived ?? this.archived,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
+    );
+  }
 
-static Habit fromJson(Map<String, dynamic> json) {
-final rawDates = json['completedDates'];
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'completedDates': completedDates.toList(),
+        'bestStreak': bestStreak,
+        'targetDays': targetDays,
+        'archived': archived,
+        'reminderMinutes': reminderMinutes,
+      };
 
-Set<String> dates = {};
-if (rawDates is List) {
-dates = rawDates.whereType<String>().toSet();
-}
+  static Habit fromJson(Map<String, dynamic> json) {
+    final rawDates = json['completedDates'];
 
-// ✅ Миграция со старых версий (streak/doneToday/lastCompletedDate)
-if (dates.isEmpty) {
-final oldStreak = (json['streak'] as int?) ?? 0;
-final oldDoneToday = (json['doneToday'] as bool?) ?? false;
-final oldLast = (json['lastCompletedDate'] as String?) ?? '';
+    Set<String> dates = {};
+    if (rawDates is List) {
+      dates = rawDates.whereType<String>().toSet();
+    }
 
-DateTime? endDate;
-if (oldLast.isNotEmpty) endDate = _tryParseYmd(oldLast);
-endDate ??= DateTime.now();
+    // ✅ Migration from older versions (streak/doneToday/lastCompletedDate)
+    if (dates.isEmpty) {
+      final oldStreak = (json['streak'] as int?) ?? 0;
+      final oldDoneToday = (json['doneToday'] as bool?) ?? false;
+      final oldLast = (json['lastCompletedDate'] as String?) ?? '';
 
-if (oldDoneToday || oldLast.isNotEmpty || oldStreak > 0) {
-final streakToRebuild = oldStreak > 0 ? oldStreak : 1;
-final capped = streakToRebuild.clamp(1, 365);
+      DateTime? endDate;
+      if (oldLast.isNotEmpty) endDate = _tryParseYmd(oldLast);
+      endDate ??= DateTime.now();
 
-for (int i = 0; i < capped; i++) {
-final d = endDate.subtract(Duration(days: i));
-dates.add(_ymd(d));
-}
-}
-}
+      if (oldDoneToday || oldLast.isNotEmpty || oldStreak > 0) {
+        final streakToRebuild = oldStreak > 0 ? oldStreak : 1;
+        final capped = streakToRebuild.clamp(1, 365);
 
-return Habit(
-id: (json['id'] as String?) ?? '',
-title: (json['title'] as String?) ?? '',
-completedDates: dates,
-targetDays: (json['targetDays'] as int?) ?? 0,
-archived: (json['archived'] as bool?) ?? false,
-reminderMinutes: (json['reminderMinutes'] as int?),
-);
-}
+        for (int i = 0; i < capped; i++) {
+          final d = endDate.subtract(Duration(days: i));
+          dates.add(_ymd(d));
+        }
+      }
+    }
 
-static String _ymd(DateTime d) {
-String two(int n) => n.toString().padLeft(2, '0');
-return '${d.year}-${two(d.month)}-${two(d.day)}';
-}
+    final storedBest = (json['bestStreak'] as int?);
+    final best = storedBest ?? _calcBestStreak(dates);
 
-static DateTime? _tryParseYmd(String s) {
-final parts = s.split('-');
-if (parts.length != 3) return null;
-final y = int.tryParse(parts[0]);
-final m = int.tryParse(parts[1]);
-final d = int.tryParse(parts[2]);
-if (y == null || m == null || d == null) return null;
-return DateTime(y, m, d);
-}
+    return Habit(
+      id: (json['id'] as String?) ?? '',
+      title: (json['title'] as String?) ?? '',
+      completedDates: dates,
+      bestStreak: best,
+      targetDays: (json['targetDays'] as int?) ?? 0,
+      archived: (json['archived'] as bool?) ?? false,
+      reminderMinutes: (json['reminderMinutes'] as int?),
+    );
+  }
+
+  // ---------- helpers ----------
+
+  static int calcBestStreakPublic(Set<String> dates) => _calcBestStreak(dates);
+
+  static int _calcBestStreak(Set<String> dates) {
+    if (dates.isEmpty) return 0;
+
+    // Convert to DateTime, sort.
+    final parsed = <DateTime>[];
+    for (final s in dates) {
+      final d = _tryParseYmd(s);
+      if (d != null) parsed.add(DateTime(d.year, d.month, d.day));
+    }
+    if (parsed.isEmpty) return 0;
+
+    parsed.sort((a, b) => a.compareTo(b));
+
+    int best = 1;
+    int cur = 1;
+
+    for (int i = 1; i < parsed.length; i++) {
+      final prev = parsed[i - 1];
+      final now = parsed[i];
+
+      final diff = now.difference(prev).inDays;
+      if (diff == 1) {
+        cur++;
+      } else if (diff == 0) {
+        // Same day duplicates shouldn't happen (Set), but just in case.
+        continue;
+      } else {
+        if (cur > best) best = cur;
+        cur = 1;
+      }
+    }
+
+    if (cur > best) best = cur;
+    return best;
+  }
+
+  static String _ymd(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
+  }
+
+  static DateTime? _tryParseYmd(String s) {
+    final parts = s.split('-');
+    if (parts.length != 3) return null;
+    final y = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (y == null || m == null || d == null) return null;
+    return DateTime(y, m, d);
+  }
 }

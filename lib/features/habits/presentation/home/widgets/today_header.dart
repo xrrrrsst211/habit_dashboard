@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/theme/app_styles.dart';
 
 class TodayHeader extends StatelessWidget {
   const TodayHeader({super.key});
@@ -12,7 +13,13 @@ class TodayHeader extends StatelessWidget {
       children: [
         Text('Your day', style: Theme.of(context).textTheme.titleLarge),
         const Spacer(),
-        Text(text, style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          text,
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(color: context.secondaryTextStyle.color),
+        ),
       ],
     );
   }
