@@ -73,7 +73,8 @@ class HabitTile extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: cs.primary.withOpacity(0.12),
+                              // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
+                              color: cs.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -243,7 +244,8 @@ class _WeekDotsByDates extends StatelessWidget {
             height: dotSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isFilled ? activeColor : cs.onSurface.withOpacity(0.12),
+              // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
+              color: isFilled ? activeColor : cs.onSurface.withValues(alpha: 0.12),
               border: isToday ? Border.all(color: todayBorderColor, width: 1.6) : null,
             ),
           ),

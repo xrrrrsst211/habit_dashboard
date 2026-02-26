@@ -190,7 +190,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.12),
+                    // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
+                    color: cs.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text('🎉 Goal reached'),
@@ -338,7 +339,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      color: done ? cs.primary : cs.onSurface.withOpacity(0.08),
+                      // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
+                      color: done ? cs.primary : cs.onSurface.withValues(alpha: 0.08),
                       border: isToday ? Border.all(color: cs.primary, width: 2) : null,
                     ),
                     child: Center(

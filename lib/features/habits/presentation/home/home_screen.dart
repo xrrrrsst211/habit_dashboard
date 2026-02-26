@@ -15,7 +15,17 @@ import 'widgets/daily_progress_card.dart';
 import 'widgets/habit_tile.dart';
 import 'widgets/today_header.dart';
 
-enum _HomeMenuAction { markAllDone, resetToday, toggleArchived, toggleTheme }
+enum _HomeMenuAction {
+  markAllDone,
+  resetToday,
+  toggleArchived,
+  toggleTheme,
+
+  // ✅ Added
+  exportBackup,
+  importBackup,
+}
+
 enum _HabitFilter { all, active, completed }
 
 class HomeScreen extends StatefulWidget {
@@ -68,8 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _toggle(Habit habit) async {
     final beforeStreak = _calcStreak(habit.completedDates);
-    final beforeReached =
-        habit.targetDays > 0 && beforeStreak >= habit.targetDays;
+    final beforeReached = habit.targetDays > 0 && beforeStreak >= habit.targetDays;
 
     await _repo.toggleHabit(habit.id);
 
@@ -79,8 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     final afterStreak = _calcStreak(updated.completedDates);
-    final afterReached =
-        updated.targetDays > 0 && afterStreak >= updated.targetDays;
+    final afterReached = updated.targetDays > 0 && afterStreak >= updated.targetDays;
 
     HapticFeedback.lightImpact();
 
@@ -122,7 +130,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   boxShadow: [
                     BoxShadow(
                       blurRadius: 24,
-                      color: cs.shadow.withOpacity(0.25),
+                      // ✅ withOpacity deprecated fix (no functional change)
+                      color: cs.shadow.withValues(alpha: 0.25),
                     ),
                   ],
                 ),
@@ -217,7 +226,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openDetails(Habit habit) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => HabitDetailScreen(repo: _repo, habit: habit)),
+      MaterialPageRoute(
+        builder: (_) => HabitDetailScreen(repo: _repo, habit: habit),
+      ),
     ).then((_) {
       if (!mounted) return;
       setState(() {});
@@ -270,6 +281,132 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(snack);
   }
 
+  // =========================
+  // ✅ Backup/Restore (Clipboard)
+  // =========================
+
+  Future<void> _exportBackupToClipboard() async {
+    final json = _repo.exportHabitsJson(pretty: true);
+    await Clipboard.setData(ClipboardData(text: json));
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Backup copied to clipboard ✅'),
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
+  Future<void> _restoreBackupFromClipboard() async {
+    final clip = await Clipboard.getData('text/plain');
+    final initial = (clip?.text ?? '').trim();
+
+    if (!mounted) return;
+
+    final controller = TextEditingController(text: initial);
+
+    Future<void> doImport() async {
+      final raw = controller.text.trim();
+
+      if (raw.isEmpty) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clipboard is empty. Copy your backup JSON first.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Restore backup?'),
+          content: const Text(
+            'This will REPLACE your current habits with the backup data.\n'
+            'You can’t undo this. Continue?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Restore'),
+            ),
+          ],
+        ),
+      );
+
+      if (ok != true) return;
+
+      try {
+        await _repo.importHabitsJson(raw);
+
+        if (!mounted) return;
+        Navigator.pop(context); // close editor
+        setState(() {});
+
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Backup restored ✅'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Restore failed: $e'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restore from clipboard'),
+        content: SizedBox(
+          width: 560,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Paste your backup JSON below (auto-filled from clipboard if available).'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                maxLines: 10,
+                decoration: const InputDecoration(
+                  hintText: 'Paste backup JSON here…',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: doImport,
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // =========================
+
   Future<void> _onMenuSelected(_HomeMenuAction action) async {
     switch (action) {
       case _HomeMenuAction.markAllDone:
@@ -291,6 +428,16 @@ class _HomeScreenState extends State<HomeScreen> {
       case _HomeMenuAction.toggleTheme:
         HapticFeedback.selectionClick();
         MyApp.of(context)?.toggleDarkMode();
+        break;
+
+      // ✅ Added
+      case _HomeMenuAction.exportBackup:
+        HapticFeedback.selectionClick();
+        await _exportBackupToClipboard();
+        break;
+      case _HomeMenuAction.importBackup:
+        HapticFeedback.selectionClick();
+        await _restoreBackupFromClipboard();
         break;
     }
   }
@@ -368,10 +515,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final todayKey = _todayKey();
         final isDark = Theme.of(context).brightness == Brightness.dark;
 
-        final base = _showArchived
-            ? _habits
-            : _habits.where((h) => !h.archived).toList();
-
+        final base = _showArchived ? _habits : _habits.where((h) => !h.archived).toList();
         final list = List<Habit>.from(base);
 
         final visible = list.where((h) {
@@ -417,6 +561,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   value: _HomeMenuAction.toggleTheme,
                   child: Text(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
                 ),
+
+                // ✅ Added
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.exportBackup,
+                  child: Text('Backup: Copy to clipboard'),
+                ),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.importBackup,
+                  child: Text('Restore: Paste from clipboard'),
+                ),
               ],
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -457,9 +612,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: visible.isEmpty
                           ? Center(
                               child: Text(
-                                _query.isEmpty
-                                    ? 'Nothing here 👀'
-                                    : 'No matches for “$_query”',
+                                _query.isEmpty ? 'Nothing here 👀' : 'No matches for “$_query”',
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodyMedium

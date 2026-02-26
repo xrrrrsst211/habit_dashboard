@@ -375,6 +375,44 @@ class HabitRepository {
     await _save(prefs);
   }
 
+  /// Export all habits as JSON (for clipboard backups).
+  /// Use pretty=true to make it easier for humans to store/share.
+  String exportHabitsJson({bool pretty = false}) {
+    final list = _habits.map((h) => h.toJson()).toList();
+    if (!pretty) return jsonEncode(list);
+
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(list);
+  }
+
+  /// Replace ALL habits from a JSON backup.
+  /// Throws [FormatException] if JSON is invalid.
+  Future<void> importHabitsJson(String rawJson) async {
+    final decoded = jsonDecode(rawJson);
+    if (decoded is! List) {
+      throw const FormatException('Backup JSON must be a List.');
+    }
+
+    final incoming = <Habit>[];
+    for (final item in decoded) {
+      if (item is! Map) continue;
+      final habit = Habit.fromJson(Map<String, dynamic>.from(item));
+      // Ensure bestStreak stays correct (and keeps migrations safe).
+      incoming.add(_ensureBestStreakConsistent(habit));
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+
+    _habits
+      ..clear()
+      ..addAll(incoming);
+
+    await _save(prefs);
+
+    // Rebuild notification schedules based on restored data.
+    await NotificationService.instance.syncFromHabits(_habits);
+  }
+
   // ---------- helpers ----------
 
   String _todayKey() => _keyFromDate(DateTime.now());
