@@ -43,16 +43,9 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
   int _weekdayToCol(int weekday) => (weekday - 1) % 7;
 
-  int _calcStreak(Set<String> dates) {
-    final now = DateTime.now();
-    int count = 0;
-    while (true) {
-      final d = now.subtract(Duration(days: count));
-      final key = _keyFromDate(d);
-      if (!dates.contains(key)) break;
-      count++;
-    }
-    return count;
+  int _calcStreak(Habit habit) {
+    // Current streak should not be broken by skipped days.
+    return Habit.calcCurrentStreakPublic(habit.completedDates, habit.skippedDates);
   }
 
   int _countThisWeek(Set<String> dates) {
@@ -174,7 +167,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       orElse: () => widget.habit,
     );
 
-    final streak = _calcStreak(current.completedDates);
+    final streak = _calcStreak(current);
 
     final hasWeeklyGoal = current.weeklyTarget > 0;
     final thisWeekDone = _countThisWeek(current.completedDates);
@@ -355,6 +348,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
               final key = _keyFromDate(date);
               final done = current.completedDates.contains(key);
+              final skipped = current.skippedDates.contains(key);
               final isToday = _sameDay(date, now);
 
               final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
@@ -368,14 +362,29 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                         if (!mounted) return;
                         setState(() {});
                       },
+                onLongPress: isFuture
+                    ? null
+                    : () async {
+                        await widget.repo.toggleSkipDate(current.id, key);
+                        if (!mounted) return;
+                        setState(() {});
+                      },
                 child: Opacity(
                   opacity: isFuture ? 0.35 : 1,
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
                       // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
-                      color: done ? cs.primary : cs.onSurface.withValues(alpha: 0.08),
-                      border: isToday ? Border.all(color: cs.primary, width: 2) : null,
+                      color: done
+                          ? cs.primary
+                          : (skipped
+                              ? cs.onSurface.withValues(alpha: 0.05)
+                              : cs.onSurface.withValues(alpha: 0.08)),
+                      border: isToday
+                          ? Border.all(color: cs.primary, width: 2)
+                          : (skipped
+                              ? Border.all(color: cs.onSurface.withValues(alpha: 0.35), width: 1.2)
+                              : null),
                     ),
                     child: Center(
                       child: Text(
@@ -394,7 +403,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
           const SizedBox(height: 18),
           Text(
-            'Tip: tap any day to add/remove a check-in.',
+            'Tip: tap to check-in, long-press to mark a rest day.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: context.secondaryTextStyle.color,
                 ),

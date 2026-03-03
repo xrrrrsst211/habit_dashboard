@@ -27,6 +27,7 @@ class HabitRepository {
               id: '1',
               title: 'Drink water',
               completedDates: <String>{},
+              skippedDates: <String>{},
               bestStreak: 0,
               targetDays: 21,
               weeklyTarget: 0,
@@ -37,6 +38,7 @@ class HabitRepository {
               id: '2',
               title: 'Workout',
               completedDates: <String>{},
+              skippedDates: <String>{},
               bestStreak: 0,
               targetDays: 30,
               weeklyTarget: 0,
@@ -47,6 +49,7 @@ class HabitRepository {
               id: '3',
               title: 'Read 20 minutes',
               completedDates: <String>{},
+              skippedDates: <String>{},
               bestStreak: 0,
               targetDays: 0,
               weeklyTarget: 0,
@@ -57,6 +60,7 @@ class HabitRepository {
               id: '4',
               title: 'Meditate',
               completedDates: <String>{},
+              skippedDates: <String>{},
               bestStreak: 0,
               targetDays: 14,
               weeklyTarget: 0,
@@ -118,20 +122,23 @@ class HabitRepository {
     final today = _todayKey();
 
     final current = _habits[i];
-    final newDates = Set<String>.from(current.completedDates);
+final newDone = Set<String>.from(current.completedDates);
+final newSkipped = Set<String>.from(current.skippedDates);
 
-    if (newDates.contains(today)) {
-      newDates.remove(today);
-    } else {
-      newDates.add(today);
-    }
+if (newDone.contains(today)) {
+  newDone.remove(today);
+} else {
+  newDone.add(today);
+  newSkipped.remove(today); // can't be both done and skipped
+}
 
-    final best = Habit.calcBestStreakPublic(newDates);
+final best = Habit.calcBestStreakPublic(newDone, newSkipped);
 
-    _habits[i] = current.copyWith(
-      completedDates: newDates,
-      bestStreak: best,
-    );
+_habits[i] = current.copyWith(
+  completedDates: newDone,
+  skippedDates: newSkipped,
+  bestStreak: best,
+);
 
     await _save(prefs);
   }
@@ -143,23 +150,63 @@ class HabitRepository {
     final prefs = await SharedPreferences.getInstance();
 
     final current = _habits[i];
-    final newDates = Set<String>.from(current.completedDates);
+final newDone = Set<String>.from(current.completedDates);
+final newSkipped = Set<String>.from(current.skippedDates);
 
-    if (newDates.contains(dateKey)) {
-      newDates.remove(dateKey);
-    } else {
-      newDates.add(dateKey);
-    }
+if (newDone.contains(dateKey)) {
+  newDone.remove(dateKey);
+} else {
+  newDone.add(dateKey);
+  newSkipped.remove(dateKey); // can't be both done and skipped
+}
 
-    final best = Habit.calcBestStreakPublic(newDates);
+final best = Habit.calcBestStreakPublic(newDone, newSkipped);
 
-    _habits[i] = current.copyWith(
-      completedDates: newDates,
-      bestStreak: best,
-    );
+_habits[i] = current.copyWith(
+  completedDates: newDone,
+  skippedDates: newSkipped,
+  bestStreak: best,
+);
 
     await _save(prefs);
   }
+
+/// Toggle "rest day" (skip) for an arbitrary date.
+/// Skipped days do NOT count as completions, but they do NOT break streaks.
+Future<void> toggleSkipDate(String habitId, String dateKey) async {
+  final i = _habits.indexWhere((h) => h.id == habitId);
+  if (i == -1) return;
+
+  final prefs = await SharedPreferences.getInstance();
+
+  final current = _habits[i];
+  final newDone = Set<String>.from(current.completedDates);
+  final newSkipped = Set<String>.from(current.skippedDates);
+
+  if (newSkipped.contains(dateKey)) {
+    newSkipped.remove(dateKey);
+  } else {
+    newSkipped.add(dateKey);
+    newDone.remove(dateKey); // can't be both done and skipped
+  }
+
+  final best = Habit.calcBestStreakPublic(newDone, newSkipped);
+
+  _habits[i] = current.copyWith(
+    completedDates: newDone,
+    skippedDates: newSkipped,
+    bestStreak: best,
+  );
+
+  await _save(prefs);
+}
+
+
+/// Toggle "rest day" (skip) for today.
+Future<void> toggleSkipToday(String habitId) async {
+  await toggleSkipDate(habitId, _todayKey());
+}
+
 
   Future<void> addHabit(
     String title,
@@ -184,6 +231,7 @@ class HabitRepository {
       id: newId,
       title: t,
       completedDates: <String>{},
+      skippedDates: <String>{},
       bestStreak: 0,
       targetDays: normalizedTargetDays,
       weeklyTarget: normalizedWeekly,
@@ -292,6 +340,7 @@ class HabitRepository {
 
     _habits[i] = _habits[i].copyWith(
       completedDates: <String>{},
+      skippedDates: <String>{},
       bestStreak: 0,
     );
 
@@ -385,11 +434,21 @@ class HabitRepository {
 
     for (var i = 0; i < _habits.length; i++) {
       final h = _habits[i];
-      if (!h.completedDates.contains(today)) continue;
 
-      final newDates = Set<String>.from(h.completedDates)..remove(today);
-      final best = Habit.calcBestStreakPublic(newDates);
-      _habits[i] = h.copyWith(completedDates: newDates, bestStreak: best);
+      // Clear BOTH "done" and "skipped" for today (reset means no status).
+      final hadAny = h.completedDates.contains(today) || h.skippedDates.contains(today);
+      if (!hadAny) continue;
+
+      final newDone = Set<String>.from(h.completedDates)..remove(today);
+      final newSkipped = Set<String>.from(h.skippedDates)..remove(today);
+
+      final best = Habit.calcBestStreakPublic(newDone, newSkipped);
+
+      _habits[i] = h.copyWith(
+        completedDates: newDone,
+        skippedDates: newSkipped,
+        bestStreak: best,
+      );
     }
 
     await _save(prefs);
@@ -401,11 +460,18 @@ class HabitRepository {
 
     for (var i = 0; i < _habits.length; i++) {
       final h = _habits[i];
-      if (h.completedDates.contains(today)) continue;
 
-      final newDates = Set<String>.from(h.completedDates)..add(today);
-      final best = Habit.calcBestStreakPublic(newDates);
-      _habits[i] = h.copyWith(completedDates: newDates, bestStreak: best);
+      final newDone = Set<String>.from(h.completedDates)..add(today);
+      // Can't be both done and skipped on the same day.
+      final newSkipped = Set<String>.from(h.skippedDates)..remove(today);
+
+      final best = Habit.calcBestStreakPublic(newDone, newSkipped);
+
+      _habits[i] = h.copyWith(
+        completedDates: newDone,
+        skippedDates: newSkipped,
+        bestStreak: best,
+      );
     }
 
     await _save(prefs);
@@ -459,7 +525,7 @@ class HabitRepository {
   }
 
   Habit _ensureBestStreakConsistent(Habit h) {
-    final computed = Habit.calcBestStreakPublic(h.completedDates);
+    final computed = Habit.calcBestStreakPublic(h.completedDates, h.skippedDates);
     if (h.bestStreak == computed) return h;
     return h.copyWith(bestStreak: computed);
   }

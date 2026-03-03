@@ -64,17 +64,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return '${d.year}-${two(d.month)}-${two(d.day)}';
   }
 
-  int _calcStreak(Set<String> dates) {
-    final now = DateTime.now();
-    int count = 0;
-    while (true) {
-      final d = now.subtract(Duration(days: count));
-      final key = _keyFromDate(d);
-      if (!dates.contains(key)) break;
-      count++;
-    }
-    return count;
+  int _calcStreak(Habit habit) {
+    return Habit.calcCurrentStreakPublic(habit.completedDates, habit.skippedDates);
   }
+
 
   int _countThisWeek(Set<String> dates) {
     final now = DateTime.now();
@@ -90,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _toggle(Habit habit) async {
-    final beforeStreak = _calcStreak(habit.completedDates);
+    final beforeStreak = _calcStreak(habit);
     final beforeReachedDuration =
         habit.targetDays > 0 && beforeStreak >= habit.targetDays;
     final beforeReachedWeekly = habit.weeklyTarget > 0 &&
@@ -103,7 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
       orElse: () => habit,
     );
 
-    final afterStreak = _calcStreak(updated.completedDates);
+    final afterStreak = _calcStreak(updated);
     final afterReachedDuration =
         updated.targetDays > 0 && afterStreak >= updated.targetDays;
     final afterReachedWeekly = updated.weeklyTarget > 0 &&
@@ -116,6 +109,14 @@ class _HomeScreenState extends State<HomeScreen> {
       _showGoalReachedDialog(updated.title);
     }
 
+    if (!mounted) return;
+    setState(() {});
+  }
+
+
+  Future<void> _toggleSkipToday(Habit habit) async {
+    await _repo.toggleSkipToday(habit.id);
+    HapticFeedback.selectionClick();
     if (!mounted) return;
     setState(() {});
   }
@@ -527,7 +528,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
 
     return FutureBuilder<void>(
       future: _initFuture,
@@ -674,6 +674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         child: HabitTile(
                                           habit: h,
                                           onToggle: () => _toggle(h),
+                                          onToggleSkipToday: () => _toggleSkipToday(h),
                                           onOpenDetails: () => _openDetails(h),
                                           onEdit: () => _openEditHabit(h),
                                           onDelete: () => _confirmAndRemoveWithUndo(h),

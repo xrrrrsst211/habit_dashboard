@@ -21,17 +21,10 @@ class StatsScreen extends StatelessWidget {
     });
   }
 
-  int _calcStreak(Set<String> dates) {
-    final now = DateTime.now();
-    int count = 0;
-    while (true) {
-      final d = now.subtract(Duration(days: count));
-      final key = _keyFromDate(d);
-      if (!dates.contains(key)) break;
-      count++;
-    }
-    return count;
-  }
+  int _calcStreak(Habit h) {
+  return Habit.calcCurrentStreakPublic(h.completedDates, h.skippedDates);
+}
+
 
   int _countThisWeek(Set<String> dates) {
     final now = DateTime.now();
@@ -56,7 +49,7 @@ class StatsScreen extends StatelessWidget {
 
     int bestStreak = 0;
     for (final h in habits) {
-      final s = _calcStreak(h.completedDates);
+      final s = _calcStreak(h);
       if (s > bestStreak) bestStreak = s;
     }
 
@@ -66,7 +59,7 @@ class StatsScreen extends StatelessWidget {
         return _countThisWeek(h.completedDates) >= h.weeklyTarget;
       }
       if (h.targetDays > 0) {
-        return _calcStreak(h.completedDates) >= h.targetDays;
+        return _calcStreak(h) >= h.targetDays;
       }
       return false;
     }).length;

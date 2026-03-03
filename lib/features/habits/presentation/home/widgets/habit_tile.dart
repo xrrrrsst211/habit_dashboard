@@ -7,6 +7,7 @@ import 'package:habit_dashboard/features/habits/domain/habit.dart';
 class HabitTile extends StatelessWidget {
   final Habit habit;
   final VoidCallback onToggle;
+  final VoidCallback onToggleSkipToday;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final VoidCallback onOpenDetails;
@@ -15,6 +16,7 @@ class HabitTile extends StatelessWidget {
     super.key,
     required this.habit,
     required this.onToggle,
+    required this.onToggleSkipToday,
     required this.onDelete,
     required this.onEdit,
     required this.onOpenDetails,
@@ -27,8 +29,9 @@ class HabitTile extends StatelessWidget {
 
     final today = _todayKey();
     final doneToday = habit.completedDates.contains(today);
+    final skippedToday = habit.skippedDates.contains(today);
 
-    final streak = _calcStreak(habit.completedDates);
+    final streak = _calcStreak(habit);
     final last7 = _last7Keys();
 
     final thisWeekDone = _countThisWeek(habit.completedDates);
@@ -58,7 +61,9 @@ class HabitTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                doneToday ? Icons.check_circle : Icons.circle_outlined,
+                doneToday
+                    ? Icons.check_circle
+                    : (skippedToday ? Icons.remove_circle_outline : Icons.circle_outlined),
                 size: 26,
               ),
               const SizedBox(width: 12),
@@ -99,6 +104,7 @@ class HabitTile extends StatelessWidget {
                     _WeekDotsByDates(
                       last7Keys: last7,
                       completedDates: habit.completedDates,
+                      skippedDates: habit.skippedDates,
                       activeColor: cs.primary,
                       todayBorderColor: cs.primary,
                     ),
@@ -148,7 +154,19 @@ class HabitTile extends StatelessWidget {
                           ),
                       ],
                     ),
-                    if (hasWeeklyGoal) ...[
+                    
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          HapticFeedback.selectionClick();
+                          onToggleSkipToday();
+                        },
+                        child: Text(skippedToday ? 'Unskip today' : 'Skip today'),
+                      ),
+                    ),
+if (hasWeeklyGoal) ...[
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
@@ -216,17 +234,10 @@ class HabitTile extends StatelessWidget {
     return '${d.year}-${two(d.month)}-${two(d.day)}';
   }
 
-  int _calcStreak(Set<String> dates) {
-    final now = DateTime.now();
-    int count = 0;
-    while (true) {
-      final d = now.subtract(Duration(days: count));
-      final key = _keyFromDate(d);
-      if (!dates.contains(key)) break;
-      count++;
-    }
-    return count;
-  }
+  int _calcStreak(Habit habit) {
+  return Habit.calcCurrentStreakPublic(habit.completedDates, habit.skippedDates);
+}
+
 
   int _countThisWeek(Set<String> dates) {
     final now = DateTime.now();
@@ -250,12 +261,14 @@ class HabitTile extends StatelessWidget {
 class _WeekDotsByDates extends StatelessWidget {
   final List<String> last7Keys;
   final Set<String> completedDates;
+  final Set<String> skippedDates;
   final Color activeColor;
   final Color todayBorderColor;
 
   const _WeekDotsByDates({
     required this.last7Keys,
     required this.completedDates,
+    required this.skippedDates,
     required this.activeColor,
     required this.todayBorderColor,
   });
@@ -272,6 +285,7 @@ class _WeekDotsByDates extends StatelessWidget {
         final key = last7Keys[index];
         final isToday = index == 6;
         final isFilled = completedDates.contains(key);
+        final isSkipped = skippedDates.contains(key);
 
         return Padding(
           padding: EdgeInsets.only(right: index == 6 ? 0 : gap),
@@ -282,8 +296,16 @@ class _WeekDotsByDates extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
-              color: isFilled ? activeColor : cs.onSurface.withValues(alpha: 0.12),
-              border: isToday ? Border.all(color: todayBorderColor, width: 1.6) : null,
+              color: isFilled
+                  ? activeColor
+                  : (isSkipped
+                      ? cs.onSurface.withValues(alpha: 0.06)
+                      : cs.onSurface.withValues(alpha: 0.12)),
+              border: isToday
+                  ? Border.all(color: todayBorderColor, width: 1.6)
+                  : (isSkipped
+                      ? Border.all(color: cs.onSurface.withValues(alpha: 0.35), width: 1.2)
+                      : null),
             ),
           ),
         );
