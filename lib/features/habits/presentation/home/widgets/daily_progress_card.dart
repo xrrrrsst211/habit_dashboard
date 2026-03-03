@@ -40,7 +40,8 @@ class DailyProgressCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: cs.primary.withValues(alpha: 0.10),
+                    // Keep compatibility across Flutter versions.
+                    color: cs.primary.withOpacity(0.10),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(

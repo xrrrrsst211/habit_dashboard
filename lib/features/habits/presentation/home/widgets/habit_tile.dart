@@ -61,16 +61,16 @@ class HabitTile extends StatelessWidget {
         : (skippedToday ? 'SKIPPED' : 'TODAY');
 
     final statusBg = doneToday
-        ? cs.primary.withValues(alpha: 0.12)
+        ? cs.primary.withOpacity(0.12)
         : (skippedToday
-            ? cs.onSurface.withValues(alpha: 0.06)
-            : cs.onSurface.withValues(alpha: 0.04));
+            ? cs.onSurface.withOpacity(0.06)
+            : cs.onSurface.withOpacity(0.04));
 
     final statusFg = doneToday
         ? cs.primary
         : (skippedToday
-            ? cs.onSurface.withValues(alpha: 0.75)
-            : cs.onSurface.withValues(alpha: 0.75));
+            ? cs.onSurface.withOpacity(0.75)
+            : cs.onSurface.withOpacity(0.75));
 
     return Card(
       child: InkWell(
@@ -136,7 +136,7 @@ class HabitTile extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: cs.primary.withValues(alpha: 0.12),
+                              color: cs.primary.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -362,13 +362,13 @@ class _WeekDotsByDates extends StatelessWidget {
               color: isFilled
                   ? activeColor
                   : (isSkipped
-                      ? cs.onSurface.withValues(alpha: 0.06)
-                      : cs.onSurface.withValues(alpha: 0.12)),
+                      ? cs.onSurface.withOpacity(0.06)
+                      : cs.onSurface.withOpacity(0.12)),
               border: isToday
                   ? Border.all(color: todayBorderColor, width: 1.6)
                   : (isSkipped
                       ? Border.all(
-                          color: cs.onSurface.withValues(alpha: 0.35),
+                          color: cs.onSurface.withOpacity(0.35),
                           width: 1.2,
                         )
                       : null),

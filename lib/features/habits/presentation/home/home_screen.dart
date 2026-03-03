@@ -14,6 +14,7 @@ import 'package:habit_dashboard/features/habits/presentation/stats/stats_screen.
 import 'widgets/daily_progress_card.dart';
 import 'widgets/habit_tile.dart';
 import 'widgets/today_header.dart';
+import 'widgets/weekly_checkin_card.dart';
 
 enum _HomeMenuAction {
   markAllDone,
@@ -80,6 +81,41 @@ class _HomeScreenState extends State<HomeScreen> {
       if (dates.contains(_keyFromDate(d))) count++;
     }
     return count;
+  }
+
+  DateTime _startOfWeek(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    return today.subtract(Duration(days: today.weekday - DateTime.monday));
+  }
+
+  /// Returns a 7-item list (Mon..Sun) where each value is 0..1
+  /// representing doneCount/totalHabits for that day.
+  List<double> _weekDayRatios(List<Habit> habits) {
+    final total = habits.length;
+    if (total == 0) return List<double>.filled(7, 0);
+
+    final start = _startOfWeek(DateTime.now());
+    return List<double>.generate(7, (i) {
+      final d = start.add(Duration(days: i));
+      final key = _keyFromDate(d);
+      final doneCount = habits.where((h) => h.completedDates.contains(key)).length;
+      return (doneCount / total).clamp(0.0, 1.0);
+    });
+  }
+
+  /// Counts how many days this week have at least one completion.
+  int _weekCheckInDays(List<Habit> habits) {
+    if (habits.isEmpty) return 0;
+    final start = _startOfWeek(DateTime.now());
+
+    int days = 0;
+    for (int i = 0; i < 7; i++) {
+      final d = start.add(Duration(days: i));
+      final key = _keyFromDate(d);
+      final anyDone = habits.any((h) => h.completedDates.contains(key));
+      if (anyDone) days++;
+    }
+    return days;
   }
 
   Future<void> _toggle(Habit habit) async {
@@ -151,8 +187,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   boxShadow: [
                     BoxShadow(
                       blurRadius: 24,
-                      // ✅ withOpacity deprecated fix (no functional change)
-                      color: cs.shadow.withValues(alpha: 0.25),
+                      // Keep compatibility across Flutter versions.
+                      color: cs.shadow.withOpacity(0.25),
                     ),
                   ],
                 ),
@@ -633,6 +669,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: DailyProgressCard(completed: completed, total: list.length),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: WeeklyCheckInCard(
+                        dayRatios: _weekDayRatios(list),
+                        checkInDays: _weekCheckInDays(list),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Expanded(

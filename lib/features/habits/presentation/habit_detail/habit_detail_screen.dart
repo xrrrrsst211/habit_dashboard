@@ -21,6 +21,28 @@ class HabitDetailScreen extends StatefulWidget {
 class _HabitDetailScreenState extends State<HabitDetailScreen> {
   late DateTime _month;
 
+  void _showCalendarHelp() {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Calendar help'),
+          content: const Text(
+            '• Tap a day to toggle done\n'
+            '• Long-press a day to toggle rest day (skip)\n\n'
+            'Skipped days don\'t add to your streak, but they also don\'t break it.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Got it'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -158,6 +180,64 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     );
   }
 
+  Widget _legendItem({
+    required Color color,
+    required Widget icon,
+    required String label,
+    Border? border,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(6),
+            border: border,
+          ),
+          child: Center(child: IconTheme(data: const IconThemeData(size: 14), child: icon)),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: context.secondaryTextStyle.color,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _calendarLegend(ColorScheme cs) {
+    final mutedBorder = Border.all(color: cs.onSurface.withAlpha(60), width: 1.2);
+    return Wrap(
+      spacing: 14,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _legendItem(
+          color: cs.primary,
+          icon: Icon(Icons.check, color: cs.onPrimary),
+          label: 'Done',
+        ),
+        _legendItem(
+          color: cs.onSurface.withAlpha(13),
+          icon: Icon(Icons.remove, color: cs.onSurface.withAlpha(160)),
+          label: 'Rest day',
+          border: mutedBorder,
+        ),
+        _legendItem(
+          color: cs.onSurface.withAlpha(20),
+          icon: const SizedBox.shrink(),
+          label: 'Empty',
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -204,8 +284,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
-                    color: cs.primary.withValues(alpha: 0.12),
+                    color: cs.primary.withAlpha(31),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: const Text('🎉 Goal reached'),
@@ -327,10 +406,21 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
           const SizedBox(height: 18),
 
-          _monthHeader(),
+          Row(
+            children: [
+              Expanded(child: _monthHeader()),
+              IconButton(
+                tooltip: 'How it works',
+                onPressed: _showCalendarHelp,
+                icon: const Icon(Icons.info_outline),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           _weekdayRow(),
           const SizedBox(height: 10),
+          _calendarLegend(cs),
+          const SizedBox(height: 12),
 
           GridView.builder(
             shrinkWrap: true,
@@ -374,16 +464,15 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
                       color: done
                           ? cs.primary
                           : (skipped
-                              ? cs.onSurface.withValues(alpha: 0.05)
-                              : cs.onSurface.withValues(alpha: 0.08)),
+                              ? cs.onSurface.withAlpha(13)
+                              : cs.onSurface.withAlpha(20)),
                       border: isToday
                           ? Border.all(color: cs.primary, width: 2)
                           : (skipped
-                              ? Border.all(color: cs.onSurface.withValues(alpha: 0.35), width: 1.2)
+                              ? Border.all(color: cs.onSurface.withAlpha(90), width: 1.2)
                               : null),
                     ),
                     child: Center(
