@@ -1,4 +1,5 @@
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
@@ -6,8 +7,13 @@ import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
 class HabitTile extends StatelessWidget {
   final Habit habit;
+
+  /// Marks/unmarks *done today* (existing behavior).
   final VoidCallback onToggle;
-  final VoidCallback onToggleSkipToday;
+
+  /// Toggles skip for *today* (rest day).
+  final VoidCallback? onToggleSkipToday;
+
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final VoidCallback onOpenDetails;
@@ -16,10 +22,10 @@ class HabitTile extends StatelessWidget {
     super.key,
     required this.habit,
     required this.onToggle,
-    required this.onToggleSkipToday,
     required this.onDelete,
     required this.onEdit,
     required this.onOpenDetails,
+    this.onToggleSkipToday,
   });
 
   @override
@@ -49,6 +55,23 @@ class HabitTile extends StatelessWidget {
     final goalProgress =
         hasGoal ? (goalDone / habit.targetDays).clamp(0.0, 1.0) : 0.0;
 
+    // Minimal status chip (does not remove any existing actions).
+    final statusLabel = doneToday
+        ? 'DONE'
+        : (skippedToday ? 'SKIPPED' : 'TODAY');
+
+    final statusBg = doneToday
+        ? cs.primary.withValues(alpha: 0.12)
+        : (skippedToday
+            ? cs.onSurface.withValues(alpha: 0.06)
+            : cs.onSurface.withValues(alpha: 0.04));
+
+    final statusFg = doneToday
+        ? cs.primary
+        : (skippedToday
+            ? cs.onSurface.withValues(alpha: 0.75)
+            : cs.onSurface.withValues(alpha: 0.75));
+
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -63,7 +86,9 @@ class HabitTile extends StatelessWidget {
               Icon(
                 doneToday
                     ? Icons.check_circle
-                    : (skippedToday ? Icons.remove_circle_outline : Icons.circle_outlined),
+                    : (skippedToday
+                        ? Icons.remove_circle_outline
+                        : Icons.circle_outlined),
                 size: 26,
               ),
               const SizedBox(width: 12),
@@ -76,17 +101,41 @@ class HabitTile extends StatelessWidget {
                         Expanded(
                           child: Text(
                             habit.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  decoration:
-                                      doneToday ? TextDecoration.lineThrough : null,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  decoration: doneToday
+                                      ? TextDecoration.lineThrough
+                                      : null,
                                 ),
                           ),
                         ),
-                        if (goalReached || weeklyReached)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: statusBg,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            statusLabel,
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.6,
+                                  color: statusFg,
+                                ),
+                          ),
+                        ),
+                        if (goalReached || weeklyReached) ...[
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
                               color: cs.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(999),
                             ),
@@ -98,6 +147,7 @@ class HabitTile extends StatelessWidget {
                                   ?.copyWith(fontWeight: FontWeight.w700),
                             ),
                           ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -141,7 +191,8 @@ class HabitTile extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.notifications_active_outlined, size: 16),
+                              const Icon(Icons.notifications_active_outlined,
+                                  size: 16),
                               const SizedBox(width: 4),
                               Text(
                                 _formatMinutes(habit.reminderMinutes!),
@@ -152,21 +203,35 @@ class HabitTile extends StatelessWidget {
                               ),
                             ],
                           ),
+
+                        // Skip/Unskip button (new UI feature) — keeps all other actions intact.
+                        if (onToggleSkipToday != null)
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              HapticFeedback.selectionClick();
+                              onToggleSkipToday!.call();
+                            },
+                            icon: Icon(
+                              skippedToday
+                                  ? Icons.undo_rounded
+                                  : Icons.hotel_rounded,
+                              size: 16,
+                            ),
+                            label: Text(
+                              skippedToday ? 'Unskip today' : 'Skip today',
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
-                    
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: OutlinedButton(
-                        onPressed: () {
-                          HapticFeedback.selectionClick();
-                          onToggleSkipToday();
-                        },
-                        child: Text(skippedToday ? 'Unskip today' : 'Skip today'),
-                      ),
-                    ),
-if (hasWeeklyGoal) ...[
+                    if (hasWeeklyGoal) ...[
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(999),
@@ -235,9 +300,8 @@ if (hasWeeklyGoal) ...[
   }
 
   int _calcStreak(Habit habit) {
-  return Habit.calcCurrentStreakPublic(habit.completedDates, habit.skippedDates);
-}
-
+    return Habit.calcCurrentStreakPublic(habit.completedDates, habit.skippedDates);
+  }
 
   int _countThisWeek(Set<String> dates) {
     final now = DateTime.now();
@@ -295,7 +359,6 @@ class _WeekDotsByDates extends StatelessWidget {
             height: dotSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              // withOpacity() is deprecated on newer Flutter; withValues keeps behavior the same.
               color: isFilled
                   ? activeColor
                   : (isSkipped
@@ -304,7 +367,10 @@ class _WeekDotsByDates extends StatelessWidget {
               border: isToday
                   ? Border.all(color: todayBorderColor, width: 1.6)
                   : (isSkipped
-                      ? Border.all(color: cs.onSurface.withValues(alpha: 0.35), width: 1.2)
+                      ? Border.all(
+                          color: cs.onSurface.withValues(alpha: 0.35),
+                          width: 1.2,
+                        )
                       : null),
             ),
           ),

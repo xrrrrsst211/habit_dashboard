@@ -5,7 +5,8 @@ import 'package:habit_dashboard/core/theme/app_styles.dart';
 ThemeData buildAppTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    colorSchemeSeed: Colors.deepPurple,
+    // Minimal teal accent (less "generic" than deepPurple)
+    colorSchemeSeed: Colors.teal,
     brightness: Brightness.light,
   );
 
@@ -35,7 +36,8 @@ ThemeData buildAppTheme() {
 ThemeData buildDarkAppTheme() {
   final base = ThemeData(
     useMaterial3: true,
-    colorSchemeSeed: Colors.deepPurple,
+    // Keep the same accent in dark mode for a consistent identity.
+    colorSchemeSeed: Colors.teal,
     brightness: Brightness.dark,
   );
 
