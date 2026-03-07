@@ -544,6 +544,232 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
+  int _countDoneInLastDays(Habit habit, int days) {
+    final today = DateTime.now();
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final d = DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: i));
+      if (habit.completedDates.contains(_keyFromDate(d))) count++;
+    }
+    return count;
+  }
+
+  int _countSkippedInLastDays(Habit habit, int days) {
+    final today = DateTime.now();
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final d = DateTime(today.year, today.month, today.day)
+          .subtract(Duration(days: i));
+      if (habit.skippedDates.contains(_keyFromDate(d))) count++;
+    }
+    return count;
+  }
+
+  double _completionRateLastDays(Habit habit, int days) {
+    final activeDays = (days - _countSkippedInLastDays(habit, days)).clamp(0, days);
+    if (activeDays == 0) return 0;
+    return _countDoneInLastDays(habit, days) / activeDays;
+  }
+
+  Widget _smartCoachCard({
+    required List<Habit> activeHabits,
+    required String todayKey,
+  }) {
+    final focusHabits = activeHabits.where((h) {
+      if (h.completedDates.contains(todayKey)) return false;
+      if (h.skippedDates.contains(todayKey)) return false;
+      return true;
+    }).toList()
+      ..sort((a, b) {
+        final streakCmp = _calcStreak(b).compareTo(_calcStreak(a));
+        if (streakCmp != 0) return streakCmp;
+        return _completionRateLastDays(b, 7).compareTo(_completionRateLastDays(a, 7));
+      });
+
+    final protectHabits = focusHabits.where((h) => _calcStreak(h) >= 3).toList();
+
+    final weeklyPressure = activeHabits.where((h) {
+      if (h.weeklyTarget <= 0) return false;
+      final done = _countThisWeek(h.completedDates);
+      final remainingDays = 7 - DateTime.now().weekday;
+      final needed = h.weeklyTarget - done;
+      return needed > 0 && needed >= remainingDays;
+    }).toList();
+
+    final momentum = [...activeHabits]
+      ..sort((a, b) {
+        final rateCmp = _completionRateLastDays(b, 14).compareTo(_completionRateLastDays(a, 14));
+        if (rateCmp != 0) return rateCmp;
+        return _calcStreak(b).compareTo(_calcStreak(a));
+      });
+
+    final leader = momentum.isEmpty ? null : momentum.first;
+    final cs = Theme.of(context).colorScheme;
+
+    Widget pill({required IconData icon, required String text, Color? color}) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: (color ?? cs.primary).withOpacity(0.08),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: (color ?? cs.primary).withOpacity(0.16)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color ?? cs.primary),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cs.primary.withOpacity(0.10),
+              cs.secondary.withOpacity(0.06),
+              cs.surface,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: cs.outline.withOpacity(0.16)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.insights_rounded),
+                const SizedBox(width: 8),
+                Text(
+                  'Smart focus',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              leader == null
+                  ? 'Start with one small win today.'
+                  : '${leader.title} has the best momentum right now.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: context.secondaryTextStyle.color,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (leader != null)
+                  pill(
+                    icon: Icons.local_fire_department_outlined,
+                    text: '${leader.title} • ${_calcStreak(leader)}d streak',
+                    color: leader.color,
+                  ),
+                if (protectHabits.isNotEmpty)
+                  pill(
+                    icon: Icons.shield_outlined,
+                    text: '${protectHabits.length} streak${protectHabits.length == 1 ? '' : 's'} need protecting',
+                  ),
+                if (weeklyPressure.isNotEmpty)
+                  pill(
+                    icon: Icons.calendar_view_week_rounded,
+                    text: '${weeklyPressure.length} weekly goal${weeklyPressure.length == 1 ? '' : 's'} under pressure',
+                    color: cs.secondary,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (focusHabits.isEmpty)
+              Text(
+                'Everything planned for today is either done or intentionally skipped. Nice.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              )
+            else
+              Column(
+                children: focusHabits.take(3).map((habit) {
+                  final streak = _calcStreak(habit);
+                  final rate7 = (_completionRateLastDays(habit, 7) * 100).round();
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cs.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: cs.outline.withOpacity(0.12)),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: habit.color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Icon(habit.iconData, color: habit.color, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                habit.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                streak > 0
+                                    ? '${habit.isQuit ? 'Clean' : 'Current'} streak: $streak days • 7d ${rate7}%'
+                                    : 'Good pick for today • 7d ${rate7}%',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: context.secondaryTextStyle.color,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton.tonal(
+                          onPressed: () => _toggle(habit),
+                          child: const Text('Done'),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _quickActionsRow() {
     Widget action({
       required IconData icon,
@@ -1393,6 +1619,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 10),
                     _quickActionsRow(),
+                    const SizedBox(height: 10),
+                    _smartCoachCard(
+                      activeHabits: activeHabits,
+                      todayKey: todayKey,
+                    ),
                     const SizedBox(height: 10),
                     _searchBar(),
                     _filterChips(),
