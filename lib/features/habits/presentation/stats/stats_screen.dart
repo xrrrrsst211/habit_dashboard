@@ -77,6 +77,38 @@ class _StatsScreenState extends State<StatsScreen> {
     return _doneCount(habit, days) / active;
   }
 
+
+  int _slipCount(Habit habit, int days) {
+    final today = _dateOnly(DateTime.now());
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.slipDates.contains(_keyFromDate(date))) count++;
+    }
+    return count;
+  }
+
+  Map<int, int> _slipWeekdayCounts(List<Habit> habits, int days) {
+    final today = _dateOnly(DateTime.now());
+    final Map<int, int> result = <int, int>{};
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      final key = _keyFromDate(date);
+      for (final habit in habits.where((h) => h.isQuit)) {
+        if (habit.slipDates.contains(key)) {
+          result[date.weekday] = (result[date.weekday] ?? 0) + 1;
+        }
+      }
+    }
+    return result;
+  }
+
+  List<MapEntry<Habit, int>> _slipLeaders(List<Habit> habits, int days) {
+    final leaders = habits.where((h) => h.isQuit).map((h) => MapEntry(h, _slipCount(h, days))).where((e) => e.value > 0).toList();
+    leaders.sort((a, b) => b.value.compareTo(a.value));
+    return leaders;
+  }
+
   List<_CalendarCellStat> _calendarStats(List<Habit> habits, int days) {
     final today = _dateOnly(DateTime.now());
     return List.generate(days, (index) {
@@ -210,6 +242,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final totalDone = shownHabits.fold<int>(0, (sum, h) => sum + _doneCount(h, _selectedDays));
     final totalActive = shownHabits.fold<int>(0, (sum, h) => sum + _activeCount(h, _selectedDays));
     final totalSkipped = shownHabits.fold<int>(0, (sum, h) => sum + _skipCount(h, _selectedDays));
+    final totalSlips = shownHabits.where((h) => h.isQuit).fold<int>(0, (sum, h) => sum + _slipCount(h, _selectedDays));
     final rangeRate = totalActive == 0 ? 0.0 : totalDone / totalActive;
 
     final goalsTracked = shownHabits.where((h) => h.targetDays > 0 || h.weeklyTarget > 0).length;
@@ -247,6 +280,9 @@ class _StatsScreenState extends State<StatsScreen> {
     final lowestWeekdayEntry = weekdayRates.entries.reduce(
       (a, b) => a.value <= b.value ? a : b,
     );
+    final slipWeekdayCounts = _slipWeekdayCounts(shownHabits, _selectedDays);
+    final topSlipWeekday = slipWeekdayCounts.isEmpty ? null : slipWeekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final slipLeaders = _slipLeaders(shownHabits, _selectedDays);
 
     final latestWeek = weekStats.isNotEmpty ? weekStats.last : null;
     final previousWeek = weekStats.length > 1 ? weekStats[weekStats.length - 2] : null;
@@ -313,6 +349,12 @@ class _StatsScreenState extends State<StatsScreen> {
                       value: '$goalsOnTrack/$goalsTracked',
                       icon: Icons.flag_outlined,
                     ),
+                    if (shownHabits.any((h) => h.isQuit))
+                      _HeroMetric(
+                        label: 'Quit slips',
+                        value: '$totalSlips',
+                        icon: Icons.flag_circle_outlined,
+                      ),
                   ],
                 ),
               ],
@@ -409,6 +451,10 @@ class _StatsScreenState extends State<StatsScreen> {
                       Text('$totalDone check-ins across $totalActive active slots'),
                       const SizedBox(height: 8),
                       Text('Skipped days: $totalSkipped'),
+                      if (shownHabits.any((h) => h.isQuit)) ...[
+                        const SizedBox(height: 8),
+                        Text('Slip days: $totalSlips'),
+                      ],
                       const SizedBox(height: 8),
                       Text('Coverage: ${shownHabits.length} ${shownHabits.length == 1 ? 'habit' : 'habits'}'),
                     ],
@@ -520,6 +566,36 @@ class _StatsScreenState extends State<StatsScreen> {
             ],
           ),
           const SizedBox(height: 14),
+          if (shownHabits.any((h) => h.isQuit)) ...[
+            _InsightCard(
+              title: 'Slip analytics',
+              subtitle: 'A clear view of relapse pressure for quit habits in this range.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    topSlipWeekday == null
+                        ? 'No slips logged in this range.'
+                        : 'Most common slip day: ${_weekdayShort(topSlipWeekday.key)} • ${topSlipWeekday.value} slip${topSlipWeekday.value == 1 ? '' : 's'}',
+                  ),
+                  const SizedBox(height: 12),
+                  if (slipLeaders.isEmpty)
+                    const Text('No quit habits have logged slips in the selected period.')
+                  else
+                    Column(
+                      children: slipLeaders.take(4).map((entry) {
+                        return _LeaderboardTile(
+                          habit: entry.key,
+                          trailing: '${entry.value}',
+                          subtitle: entry.value == 1 ? '1 slip in this range' : '${entry.value} slips in this range',
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

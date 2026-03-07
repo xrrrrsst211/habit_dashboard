@@ -60,6 +60,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     return '${d.year}-${two(d.month)}-${two(d.day)}';
   }
 
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
   bool _sameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -135,6 +137,51 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       final dt = DateTime.tryParse(d);
       return dt != null && !dt.isBefore(start);
     }).length;
+  }
+
+
+  List<DateTime> _recentSlipDates(Habit habit, {int limit = 6}) {
+    final dates = habit.slipDates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .map(_dateOnly)
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    return dates.take(limit).toList();
+  }
+
+  String _prettyDate(DateTime d) {
+    const months = <String>['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
+
+  Future<void> _handleSlipAction(Habit habit, DateTime date) async {
+    final key = _keyFromDate(date);
+    final slipped = habit.slipDates.contains(key);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(slipped ? 'Undo slip?' : 'Log slip?'),
+        content: Text(
+          slipped
+              ? 'Remove the slip mark for ${_prettyDate(date)}?'
+              : 'Mark ${_prettyDate(date)} as a slip / relapse day? This will clear any clean or skipped status for that date.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(slipped ? 'Undo' : 'Log slip')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.repo.toggleSlipDate(habit.id, key);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(slipped ? 'Slip removed for ${_prettyDate(date)}' : 'Slip logged for ${_prettyDate(date)}')),
+      );
+    setState(() {});
   }
 
   Widget _smartReminderCard(Habit habit) {
@@ -249,9 +296,12 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
   Widget _slipCard(Habit habit) {
     if (!habit.isQuit) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
     final slips30 = _slipCountLast30(habit);
-    final todayKey = _keyFromDate(DateTime.now());
+    final today = _dateOnly(DateTime.now());
+    final todayKey = _keyFromDate(today);
     final slippedToday = habit.slipDates.contains(todayKey);
+    final recentSlips = _recentSlipDates(habit);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -267,28 +317,61 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
             children: [
               const Icon(Icons.flag_outlined),
               const SizedBox(width: 8),
-              Text('Slip log', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              Text('Relapse / slip log', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
             ],
           ),
           const SizedBox(height: 8),
-          Text('Use this if there was a relapse. It stays separate from clean-day check-ins for more honest analytics.'),
+          Text(
+            'Use this when there was a relapse. Slips stay separate from clean-day check-ins so your quit analytics stay honest and easier to review later.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.82)),
+          ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               FilledButton.tonalIcon(
-                onPressed: () async {
-                  await widget.repo.toggleSlipToday(habit.id);
-                  if (!mounted) return;
-                  setState(() {});
-                },
+                onPressed: () => _handleSlipAction(habit, today),
                 icon: Icon(slippedToday ? Icons.undo_rounded : Icons.flag_rounded),
                 label: Text(slippedToday ? 'Undo slip today' : 'Log slip today'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: today,
+                    firstDate: DateTime(today.year - 3),
+                    lastDate: today,
+                  );
+                  if (picked == null) return;
+                  if (!mounted) return;
+                  await _handleSlipAction(habit, _dateOnly(picked));
+                },
+                icon: const Icon(Icons.event_rounded),
+                label: const Text('Log past slip'),
               ),
               Chip(label: Text('Last 30 days: $slips30 slip${slips30 == 1 ? '' : 's'}')),
             ],
           ),
+          if (recentSlips.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Recent slips', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: recentSlips.map((date) {
+                final key = _keyFromDate(date);
+                final isToday = key == todayKey;
+                return InputChip(
+                  avatar: const Icon(Icons.flag_rounded, size: 16),
+                  label: Text(isToday ? 'Today' : _prettyDate(date)),
+                  onPressed: () => _handleSlipAction(habit, date),
+                  onDeleted: () => _handleSlipAction(habit, date),
+                );
+              }).toList(),
+            ),
+          ],
         ],
       ),
     );

@@ -187,6 +187,120 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
   }
 
 
+  int _countSlipsInLastDays(Habit habit, int days) {
+    final today = _dateOnly(DateTime.now());
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.slipDates.contains(_keyFromDate(date))) count++;
+    }
+    return count;
+  }
+
+  Map<int, int> _slipWeekdayCounts(Habit habit, int days) {
+    final today = _dateOnly(DateTime.now());
+    final result = <int, int>{};
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.slipDates.contains(_keyFromDate(date))) {
+        result[date.weekday] = (result[date.weekday] ?? 0) + 1;
+      }
+    }
+    return result;
+  }
+
+  String _weekdayName(int weekday) {
+    const names = <int, String>{
+      1: 'Monday',
+      2: 'Tuesday',
+      3: 'Wednesday',
+      4: 'Thursday',
+      5: 'Friday',
+      6: 'Saturday',
+      7: 'Sunday',
+    };
+    return names[weekday] ?? '?';
+  }
+
+  List<DateTime> _recentSlipDates(Habit habit, {int limit = 8}) {
+    final dates = habit.slipDates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .map(_dateOnly)
+        .toList()
+      ..sort((a, b) => b.compareTo(a));
+    return dates.take(limit).toList();
+  }
+
+  String _prettyDate(DateTime d) {
+    const months = <String>['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
+
+  Widget _slipInsightsCard(Habit habit) {
+    if (!habit.isQuit) return const SizedBox.shrink();
+    final slips7 = _countSlipsInLastDays(habit, 7);
+    final slips30 = _countSlipsInLastDays(habit, 30);
+    final weekdayCounts = _slipWeekdayCounts(habit, 90);
+    final topSlipDay = weekdayCounts.isEmpty
+        ? null
+        : weekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final recentSlips = _recentSlipDates(habit);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.red.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag_outlined),
+              const SizedBox(width: 8),
+              Text(
+                'Slip insights',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              SizedBox(width: 150, child: _statCard(icon: Icons.history_toggle_off_rounded, label: 'Last 7 days', value: '$slips7')),
+              SizedBox(width: 150, child: _statCard(icon: Icons.date_range_outlined, label: 'Last 30 days', value: '$slips30')),
+              SizedBox(
+                width: 180,
+                child: _statCard(
+                  icon: Icons.event_busy_outlined,
+                  label: 'Most common slip day',
+                  value: topSlipDay == null ? 'None' : _weekdayName(topSlipDay.key),
+                  subtitle: topSlipDay == null ? 'No slips logged yet.' : '${topSlipDay.value} in the last 90 days',
+                ),
+              ),
+            ],
+          ),
+          if (recentSlips.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('Recent slip history', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: recentSlips.map((date) => Chip(label: Text(_prettyDate(date)))).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+
   Widget _motivationCard(Habit habit) {
     final notes = habit.notes.trim();
     if (notes.isEmpty) return const SizedBox.shrink();
@@ -710,6 +824,10 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
             const SizedBox(height: 18),
             _motivationCard(habit),
           ],
+          if (habit.isQuit) ...[
+            const SizedBox(height: 18),
+            _slipInsightsCard(habit),
+          ],
           const SizedBox(height: 24),
           _sectionTitle(
             'Milestones',
@@ -906,4 +1024,5 @@ class _MilestoneData {
     required this.icon,
   });
 }
+
 
