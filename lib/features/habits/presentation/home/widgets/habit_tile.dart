@@ -7,13 +7,8 @@ import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
 class HabitTile extends StatelessWidget {
   final Habit habit;
-
-  /// Marks/unmarks *done today* (existing behavior).
   final VoidCallback onToggle;
-
-  /// Toggles skip for *today* (rest day).
   final VoidCallback? onToggleSkipToday;
-
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final VoidCallback onOpenDetails;
@@ -32,6 +27,7 @@ class HabitTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final secondaryColor = context.secondaryTextStyle.color;
+    final accent = habit.color;
 
     final today = _todayKey();
     final doneToday = habit.completedDates.contains(today);
@@ -55,19 +51,18 @@ class HabitTile extends StatelessWidget {
     final goalProgress =
         hasGoal ? (goalDone / habit.targetDays).clamp(0.0, 1.0) : 0.0;
 
-    // Minimal status chip (does not remove any existing actions).
     final statusLabel = doneToday
-        ? 'DONE'
-        : (skippedToday ? 'SKIPPED' : 'TODAY');
+        ? (habit.isQuit ? 'CLEAN' : 'DONE')
+        : (skippedToday ? 'REST' : 'TODAY');
 
     final statusBg = doneToday
-        ? cs.primary.withOpacity(0.12)
+        ? accent.withOpacity(0.14)
         : (skippedToday
             ? cs.onSurface.withOpacity(0.06)
             : cs.onSurface.withOpacity(0.04));
 
     final statusFg = doneToday
-        ? cs.primary
+        ? accent
         : (skippedToday
             ? cs.onSurface.withOpacity(0.75)
             : cs.onSurface.withOpacity(0.75));
@@ -82,14 +77,19 @@ class HabitTile extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                doneToday
-                    ? Icons.check_circle
-                    : (skippedToday
-                        ? Icons.remove_circle_outline
-                        : Icons.circle_outlined),
-                size: 26,
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  doneToday
+                      ? Icons.check_circle
+                      : (skippedToday
+                          ? Icons.remove_circle_outline
+                          : Icons.circle_outlined),
+                  size: 26,
+                  color: doneToday ? accent : null,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -98,32 +98,35 @@ class HabitTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: accent.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(habit.iconData, color: accent, size: 19),
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             habit.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  decoration: doneToday
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  decoration: doneToday && habit.isBuild
                                       ? TextDecoration.lineThrough
                                       : null,
                                 ),
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: statusBg,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
                             statusLabel,
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
-                                ?.copyWith(
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 0.6,
                                   color: statusFg,
@@ -133,10 +136,9 @@ class HabitTile extends StatelessWidget {
                         if (goalReached || weeklyReached) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: cs.primary.withOpacity(0.12),
+                              color: accent.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
@@ -155,8 +157,8 @@ class HabitTile extends StatelessWidget {
                       last7Keys: last7,
                       completedDates: habit.completedDates,
                       skippedDates: habit.skippedDates,
-                      activeColor: cs.primary,
-                      todayBorderColor: cs.primary,
+                      activeColor: accent,
+                      todayBorderColor: accent,
                     ),
                     const SizedBox(height: 6),
                     Wrap(
@@ -165,7 +167,21 @@ class HabitTile extends StatelessWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
-                          streak > 0 ? '🔥 $streak day streak' : 'No streak yet',
+                          streak > 0 ? '🔥 $streak ${habit.streakLabel}' : 'No streak yet',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: secondaryColor),
+                        ),
+                        Text(
+                          '• ${habit.typeLabel}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: secondaryColor),
+                        ),
+                        Text(
+                          '• ${Habit.iconLabelFor(habit.iconKey)}',
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
@@ -191,8 +207,7 @@ class HabitTile extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.notifications_active_outlined,
-                                  size: 16),
+                              const Icon(Icons.notifications_active_outlined, size: 16),
                               const SizedBox(width: 4),
                               Text(
                                 _formatMinutes(habit.reminderMinutes!),
@@ -203,8 +218,6 @@ class HabitTile extends StatelessWidget {
                               ),
                             ],
                           ),
-
-                        // Skip/Unskip button (new UI feature) — keeps all other actions intact.
                         if (onToggleSkipToday != null)
                           OutlinedButton.icon(
                             onPressed: () {
@@ -212,24 +225,29 @@ class HabitTile extends StatelessWidget {
                               onToggleSkipToday!.call();
                             },
                             icon: Icon(
-                              skippedToday
-                                  ? Icons.undo_rounded
-                                  : Icons.hotel_rounded,
+                              skippedToday ? Icons.undo_rounded : Icons.hotel_rounded,
                               size: 16,
                             ),
-                            label: Text(
-                              skippedToday ? 'Unskip today' : 'Skip today',
-                            ),
+                            label: Text(skippedToday ? 'Unskip today' : 'Skip today'),
                             style: OutlinedButton.styleFrom(
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(999),
                               ),
                             ),
                           ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      doneToday
+                          ? habit.completionActionLabel
+                          : (habit.isQuit ? 'Tap to mark today as clean' : 'Tap to mark done'),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: secondaryColor),
                     ),
                     if (hasWeeklyGoal) ...[
                       const SizedBox(height: 8),
@@ -238,6 +256,8 @@ class HabitTile extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: weeklyProgress,
                           minHeight: 8,
+                          valueColor: AlwaysStoppedAnimation<Color>(accent),
+                          backgroundColor: accent.withOpacity(0.12),
                         ),
                       ),
                     ] else if (hasGoal) ...[
@@ -247,35 +267,41 @@ class HabitTile extends StatelessWidget {
                         child: LinearProgressIndicator(
                           value: goalProgress,
                           minHeight: 8,
+                          valueColor: AlwaysStoppedAnimation<Color>(accent),
+                          backgroundColor: accent.withOpacity(0.12),
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              IconButton(
-                tooltip: 'Details',
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  onOpenDetails();
-                },
-                icon: const Icon(Icons.info_outline),
-              ),
-              IconButton(
-                tooltip: 'Edit',
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  onEdit();
-                },
-                icon: const Icon(Icons.edit_outlined),
-              ),
-              IconButton(
-                tooltip: 'Delete',
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  onDelete();
-                },
-                icon: const Icon(Icons.delete_outline),
+              Column(
+                children: [
+                  IconButton(
+                    tooltip: 'Details',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      onOpenDetails();
+                    },
+                    icon: const Icon(Icons.info_outline),
+                  ),
+                  IconButton(
+                    tooltip: 'Edit',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      onEdit();
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      onDelete();
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
               ),
             ],
           ),

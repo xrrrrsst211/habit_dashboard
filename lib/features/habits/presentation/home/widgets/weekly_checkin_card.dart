@@ -64,7 +64,7 @@ class WeeklyCheckInCard extends StatelessWidget {
 
                 final Color fill = cs.primary.withOpacity(0.15 + (0.75 * r));
                 final Color border = isEmpty
-                    ? cs.outlineVariant
+                    ? cs.outline.withOpacity(0.28)
                     : cs.primary.withOpacity(0.40);
 
                 return Column(

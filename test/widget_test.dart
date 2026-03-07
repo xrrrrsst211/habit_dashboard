@@ -1,12 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:habit_dashboard/app/app.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-testWidgets('App builds', (WidgetTester tester) async {
-await tester.pumpWidget(const MyApp(initialDarkMode: false));
-await tester.pump(); // даём фрейм отрисоваться
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-// Просто проверяем, что приложение не упало и MyApp реально построился.
-expect(find.byType(MyApp), findsOneWidget);
-});
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('App builds', (WidgetTester tester) async {
+    await tester.pumpWidget(const MyApp(initialDarkMode: false));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(MyApp), findsOneWidget);
+  });
 }

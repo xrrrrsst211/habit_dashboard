@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
+import 'package:habit_dashboard/features/habits/presentation/habit_history/habit_history_screen.dart';
 
 class HabitDetailScreen extends StatefulWidget {
   final HabitRepository repo;
@@ -27,10 +28,14 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Calendar help'),
-          content: const Text(
-            '• Tap a day to toggle done\n'
-            '• Long-press a day to toggle rest day (skip)\n\n'
-            'Skipped days don\'t add to your streak, but they also don\'t break it.',
+          content: Text(
+            widget.habit.isQuit
+                ? '• Tap a day to mark it as clean\n'
+                    '• Long-press a day to toggle rest day (skip)\n\n'
+                    'Skipped days don\'t add to your streak, but they also don\'t break it.'
+                : '• Tap a day to toggle done\n'
+                    '• Long-press a day to toggle rest day (skip)\n\n'
+                    'Skipped days don\'t add to your streak, but they also don\'t break it.',
           ),
           actions: [
             TextButton(
@@ -133,6 +138,52 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     return t.hour * 60 + t.minute;
   }
 
+
+  Widget _notesCard(Habit habit) {
+    final notes = habit.notes.trim();
+    if (notes.isEmpty) return const SizedBox.shrink();
+
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: habit.color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: habit.color.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                habit.isQuit ? Icons.favorite_outline_rounded : Icons.lightbulb_outline_rounded,
+                size: 20,
+                color: habit.color,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                habit.isQuit ? 'Reason to stay clean' : 'Why this matters',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            notes,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  height: 1.4,
+                  color: cs.onSurface.withOpacity(0.88),
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _monthHeader() {
     return Row(
       children: [
@@ -211,7 +262,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     );
   }
 
-  Widget _calendarLegend(ColorScheme cs) {
+  Widget _calendarLegend(ColorScheme cs, Habit habit) {
     final mutedBorder = Border.all(color: cs.onSurface.withAlpha(60), width: 1.2);
     return Wrap(
       spacing: 14,
@@ -219,9 +270,9 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         _legendItem(
-          color: cs.primary,
+          color: habit.color,
           icon: Icon(Icons.check, color: cs.onPrimary),
-          label: 'Done',
+          label: habit.isQuit ? 'Clean' : 'Done',
         ),
         _legendItem(
           color: cs.onSurface.withAlpha(13),
@@ -235,6 +286,189 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           label: 'Empty',
         ),
       ],
+    );
+  }
+
+
+
+  List<_MilestoneData> _milestones(Habit habit) {
+    return [
+      _MilestoneData(days: 3, label: habit.isQuit ? '3 clean days' : '3-day streak', icon: Icons.looks_3_rounded),
+      _MilestoneData(days: 7, label: habit.isQuit ? '1 week clean' : '1 week streak', icon: Icons.date_range_outlined),
+      _MilestoneData(days: 14, label: habit.isQuit ? '2 weeks clean' : '2 weeks streak', icon: Icons.bolt_outlined),
+      _MilestoneData(days: 30, label: habit.isQuit ? '30 clean days' : '30-day streak', icon: Icons.emoji_events_outlined),
+      _MilestoneData(days: 60, label: habit.isQuit ? '60 clean days' : '60-day streak', icon: Icons.workspace_premium_outlined),
+      _MilestoneData(days: 100, label: habit.isQuit ? '100 clean days' : '100-day streak', icon: Icons.stars_rounded),
+    ];
+  }
+
+  _MilestoneData? _nextMilestone(Habit habit, int streak) {
+    for (final milestone in _milestones(habit)) {
+      if (streak < milestone.days) return milestone;
+    }
+    return null;
+  }
+
+  Widget _nextMilestoneCard(Habit habit, int streak) {
+    final cs = Theme.of(context).colorScheme;
+    final next = _nextMilestone(habit, streak);
+    final achieved = _milestones(habit).where((m) => streak >= m.days).length;
+
+    if (next == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: habit.color.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: habit.color.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: habit.color.withOpacity(0.16),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(Icons.workspace_premium_outlined, color: habit.color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'All milestone tiers reached',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'You unlocked $achieved achievement${achieved == 1 ? '' : 's'} for this habit.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.secondaryTextStyle.color,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final remaining = next.days - streak;
+    final previousDays = _milestones(habit)
+        .where((m) => m.days < next.days)
+        .fold<int>(0, (maxDays, m) => m.days > maxDays ? m.days : maxDays);
+    final segmentDenominator = (next.days - previousDays).clamp(1, 1000000);
+    final segmentProgress = ((streak - previousDays) / segmentDenominator).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withOpacity(0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: habit.color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(next.icon, color: habit.color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Next milestone',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      next.label,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: context.secondaryTextStyle.color,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '$remaining left',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: segmentProgress,
+              minHeight: 10,
+              valueColor: AlwaysStoppedAnimation<Color>(habit.color),
+              backgroundColor: habit.color.withOpacity(0.12),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            habit.isQuit
+                ? 'Keep stacking clean days to unlock the next badge.'
+                : 'Keep checking in to unlock the next streak badge.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.secondaryTextStyle.color,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _achievementChip(_MilestoneData milestone, bool unlocked, Habit habit) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: unlocked ? habit.color.withOpacity(0.12) : cs.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: unlocked ? habit.color.withOpacity(0.28) : cs.outline.withOpacity(0.18),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            unlocked ? milestone.icon : Icons.lock_outline_rounded,
+            size: 16,
+            color: unlocked ? habit.color : context.secondaryTextStyle.color,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            milestone.label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: unlocked ? null : context.secondaryTextStyle.color,
+                ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -275,9 +509,25 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  current.title,
-                  style: Theme.of(context).textTheme.headlineSmall,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: current.color.withOpacity(0.14),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(current.iconData, color: current.color),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        current.title,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (goalReached || weeklyReached)
@@ -293,12 +543,33 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            streak > 0 ? '🔥 $streak day streak' : 'No streak yet',
+            streak > 0 ? '🔥 $streak ${current.streakLabel}' : 'No streak yet',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: context.secondaryTextStyle.color,
                 ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            current.isQuit ? 'Tap days to mark them clean.' : 'Tap days to mark them done.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: context.secondaryTextStyle.color,
+                ),
+          ),
           const SizedBox(height: 12),
+
+          _nextMilestoneCard(current, streak),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _milestones(current)
+                .map((milestone) => _achievementChip(
+                      milestone,
+                      streak >= milestone.days,
+                      current,
+                    ))
+                .toList(),
+          ),
 
           if (hasWeeklyGoal || hasGoal) ...[
             if (hasWeeklyGoal) ...[
@@ -313,7 +584,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               ),
               const SizedBox(height: 12),
             ] else ...[
-              Text('Goal: $doneToGoal / ${current.targetDays} days'),
+              Text(current.isQuit ? 'Goal: $doneToGoal / ${current.targetDays} clean days' : 'Goal: $doneToGoal / ${current.targetDays} days'),
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
@@ -334,7 +605,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                       setState(() {});
                     },
                     icon: const Icon(Icons.restart_alt),
-                    label: const Text('Restart progress'),
+                    label: Text(current.isQuit ? 'Reset clean streak' : 'Restart progress'),
                   ),
                 ),
               ],
@@ -391,6 +662,31 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => HabitHistoryScreen(
+                          repo: widget.repo,
+                          habit: current,
+                        ),
+                      ),
+                    );
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                  icon: const Icon(Icons.insights_outlined),
+                  label: const Text('View history & insights'),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
                     await widget.repo.setArchived(current.id, !current.archived);
                     if (!mounted) return;
                     setState(() {});
@@ -419,7 +715,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           const SizedBox(height: 8),
           _weekdayRow(),
           const SizedBox(height: 10),
-          _calendarLegend(cs),
+          _calendarLegend(cs, current),
           const SizedBox(height: 12),
 
           GridView.builder(
@@ -470,7 +766,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                               ? cs.onSurface.withAlpha(13)
                               : cs.onSurface.withAlpha(20)),
                       border: isToday
-                          ? Border.all(color: cs.primary, width: 2)
+                          ? Border.all(color: current.color, width: 2)
                           : (skipped
                               ? Border.all(color: cs.onSurface.withAlpha(90), width: 1.2)
                               : null),
@@ -492,7 +788,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
 
           const SizedBox(height: 18),
           Text(
-            'Tip: tap to check-in, long-press to mark a rest day.',
+            current.isQuit ? 'Tip: tap to mark a clean day, long-press to mark a rest day.' : 'Tip: tap to check-in, long-press to mark a rest day.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: context.secondaryTextStyle.color,
                 ),
@@ -501,4 +797,16 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
       ),
     );
   }
+}
+
+class _MilestoneData {
+  final int days;
+  final String label;
+  final IconData icon;
+
+  const _MilestoneData({
+    required this.days,
+    required this.label,
+    required this.icon,
+  });
 }

@@ -4,12 +4,14 @@ class AppScaffold extends StatelessWidget {
   final String title;
   final Widget body;
   final Widget? floatingActionButton;
+  final bool showDefaultHeader;
 
   const AppScaffold({
     super.key,
     required this.title,
     required this.body,
     this.floatingActionButton,
+    this.showDefaultHeader = true,
   });
 
   @override
@@ -21,14 +23,16 @@ class AppScaffold extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineSmall,
+              if (showDefaultHeader) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
+              ],
               Expanded(child: body),
             ],
           ),

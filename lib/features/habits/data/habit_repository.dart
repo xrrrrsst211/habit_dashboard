@@ -17,63 +17,10 @@ class HabitRepository {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storageKey);
 
-    // First launch (or wiped storage) -> seed demo habits.
     if (raw == null || raw.trim().isEmpty) {
-      _habits
-        ..clear()
-        ..addAll(
-          const [
-            Habit(
-              id: '1',
-              title: 'Drink water',
-              completedDates: <String>{},
-              skippedDates: <String>{},
-              bestStreak: 0,
-              targetDays: 21,
-              weeklyTarget: 0,
-              archived: false,
-              reminderMinutes: null,
-            ),
-            Habit(
-              id: '2',
-              title: 'Workout',
-              completedDates: <String>{},
-              skippedDates: <String>{},
-              bestStreak: 0,
-              targetDays: 30,
-              weeklyTarget: 0,
-              archived: false,
-              reminderMinutes: null,
-            ),
-            Habit(
-              id: '3',
-              title: 'Read 20 minutes',
-              completedDates: <String>{},
-              skippedDates: <String>{},
-              bestStreak: 0,
-              targetDays: 0,
-              weeklyTarget: 0,
-              archived: false,
-              reminderMinutes: null,
-            ),
-            Habit(
-              id: '4',
-              title: 'Meditate',
-              completedDates: <String>{},
-              skippedDates: <String>{},
-              bestStreak: 0,
-              targetDays: 14,
-              weeklyTarget: 0,
-              archived: false,
-              reminderMinutes: null,
-            ),
-          ],
-        );
-
+      _habits.clear();
       await _save(prefs);
       _initialized = true;
-
-      // Sync notifications on first launch too.
       await NotificationService.instance.syncFromHabits(_habits);
       return;
     }
@@ -102,6 +49,86 @@ class HabitRepository {
 
     // Recreate notification schedules from stored habits.
     await NotificationService.instance.syncFromHabits(_habits);
+  }
+
+  Future<void> seedStarterHabitsIfEmpty() async {
+    await init();
+    if (_habits.isNotEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    _habits
+      ..clear()
+      ..addAll(_starterHabits());
+
+    await _save(prefs);
+    await NotificationService.instance.syncFromHabits(_habits);
+  }
+
+  bool get hasAnyHabits => _habits.isNotEmpty;
+
+  List<Habit> _starterHabits() {
+    return const [
+      Habit(
+        id: 'starter_1',
+        title: 'Drink water',
+        completedDates: <String>{},
+        skippedDates: <String>{},
+        bestStreak: 0,
+        type: Habit.typeBuild,
+        targetDays: 21,
+        weeklyTarget: 0,
+        archived: false,
+        reminderMinutes: null,
+        notes: 'A small daily win that helps energy and focus.',
+        iconKey: 'water',
+        colorValue: 0xFF0EA5E9,
+      ),
+      Habit(
+        id: 'starter_2',
+        title: 'Workout',
+        completedDates: <String>{},
+        skippedDates: <String>{},
+        bestStreak: 0,
+        type: Habit.typeBuild,
+        targetDays: 30,
+        weeklyTarget: 0,
+        archived: false,
+        reminderMinutes: null,
+        notes: 'Even a short session counts. Consistency first.',
+        iconKey: 'fitness',
+        colorValue: 0xFFEF4444,
+      ),
+      Habit(
+        id: 'starter_3',
+        title: 'Read 20 minutes',
+        completedDates: <String>{},
+        skippedDates: <String>{},
+        bestStreak: 0,
+        type: Habit.typeBuild,
+        targetDays: 0,
+        weeklyTarget: 4,
+        archived: false,
+        reminderMinutes: null,
+        notes: 'A calm daily habit for growth and focus.',
+        iconKey: 'book',
+        colorValue: 0xFFF59E0B,
+      ),
+      Habit(
+        id: 'starter_4',
+        title: 'No vaping',
+        completedDates: <String>{},
+        skippedDates: <String>{},
+        bestStreak: 0,
+        type: Habit.typeQuit,
+        targetDays: 14,
+        weeklyTarget: 0,
+        archived: false,
+        reminderMinutes: null,
+        notes: 'Breathe easier, save money, feel cleaner.',
+        iconKey: 'no_vape',
+        colorValue: 0xFF7C3AED,
+      ),
+    ];
   }
 
   List<Habit> getHabits() => List.unmodifiable(_habits);
@@ -210,9 +237,13 @@ Future<void> toggleSkipToday(String habitId) async {
 
   Future<void> addHabit(
     String title,
+    String type,
     int targetDays,
     int weeklyTarget,
     int? reminderMinutes,
+    String notes,
+    String iconKey,
+    int colorValue,
   ) async {
     final t = title.trim();
     if (t.isEmpty) return;
@@ -230,6 +261,7 @@ Future<void> toggleSkipToday(String habitId) async {
     final habit = Habit(
       id: newId,
       title: t,
+      type: type,
       completedDates: <String>{},
       skippedDates: <String>{},
       bestStreak: 0,
@@ -237,6 +269,9 @@ Future<void> toggleSkipToday(String habitId) async {
       weeklyTarget: normalizedWeekly,
       archived: false,
       reminderMinutes: reminderMinutes,
+      notes: notes.trim(),
+      iconKey: iconKey,
+      colorValue: colorValue,
     );
 
     _habits.add(habit);
@@ -299,6 +334,40 @@ Future<void> toggleSkipToday(String habitId) async {
         minutesFromMidnight: updated.reminderMinutes!,
       );
     }
+  }
+
+  Future<void> setNotes(String id, String notes) async {
+    final i = _habits.indexWhere((h) => h.id == id);
+    if (i == -1) return;
+
+    final updated = _habits[i].copyWith(notes: notes.trim());
+    _habits[i] = updated;
+
+    final prefs = await SharedPreferences.getInstance();
+    await _save(prefs);
+  }
+
+  Future<void> setType(String id, String type) async {
+    final i = _habits.indexWhere((h) => h.id == id);
+    if (i == -1) return;
+
+    _habits[i] = _habits[i].copyWith(type: type);
+
+    final prefs = await SharedPreferences.getInstance();
+    await _save(prefs);
+  }
+
+  Future<void> setAppearance(String id, String iconKey, int colorValue) async {
+    final i = _habits.indexWhere((h) => h.id == id);
+    if (i == -1) return;
+
+    _habits[i] = _habits[i].copyWith(
+      iconKey: iconKey,
+      colorValue: colorValue,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await _save(prefs);
   }
 
   Future<void> setTargetDays(String id, int targetDays) async {
@@ -477,7 +546,7 @@ Future<void> toggleSkipToday(String habitId) async {
     await _save(prefs);
   }
 
-  /// Export all habits as JSON (for clipboard backups).
+  /// Export all habits as plain JSON array (legacy/clipboard-friendly format).
   /// Use pretty=true to make it easier for humans to store/share.
   String exportHabitsJson({bool pretty = false}) {
     final list = _habits.map((h) => h.toJson()).toList();
@@ -487,16 +556,45 @@ Future<void> toggleSkipToday(String habitId) async {
     return encoder.convert(list);
   }
 
+  /// Export a richer JSON backup object for file-based backups.
+  /// Includes metadata while staying easy to inspect manually.
+  Map<String, dynamic> exportBackupPayload() {
+    return <String, dynamic>{
+      'app': 'habit_dashboard',
+      'formatVersion': 2,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'habitCount': _habits.length,
+      'habits': _habits.map((h) => h.toJson()).toList(),
+    };
+  }
+
+  String exportBackupBundleJson({bool pretty = false}) {
+    final payload = exportBackupPayload();
+    if (!pretty) return jsonEncode(payload);
+
+    const encoder = JsonEncoder.withIndent('  ');
+    return encoder.convert(payload);
+  }
+
   /// Replace ALL habits from a JSON backup.
+  /// Supports both legacy List backups and wrapped file backups.
   /// Throws [FormatException] if JSON is invalid.
   Future<void> importHabitsJson(String rawJson) async {
     final decoded = jsonDecode(rawJson);
-    if (decoded is! List) {
-      throw const FormatException('Backup JSON must be a List.');
+
+    List<dynamic> items;
+    if (decoded is List) {
+      items = decoded;
+    } else if (decoded is Map && decoded['habits'] is List) {
+      items = List<dynamic>.from(decoded['habits'] as List);
+    } else {
+      throw const FormatException(
+        'Backup JSON must be either a List or an object containing a habits list.',
+      );
     }
 
     final incoming = <Habit>[];
-    for (final item in decoded) {
+    for (final item in items) {
       if (item is! Map) continue;
       final habit = Habit.fromJson(Map<String, dynamic>.from(item));
       // Ensure bestStreak stays correct (and keeps migrations safe).
