@@ -123,6 +123,177 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 
+  String _weekdayNameShort(int weekday) {
+    const names = <int, String>{1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'};
+    return names[weekday] ?? '?';
+  }
+
+  int _slipCountLast30(Habit habit) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 29));
+    return habit.slipDates.where((d) {
+      final dt = DateTime.tryParse(d);
+      return dt != null && !dt.isBefore(start);
+    }).length;
+  }
+
+  Widget _smartReminderCard(Habit habit) {
+    final cs = Theme.of(context).colorScheme;
+    final reminderOn = habit.reminderMinutes != null;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: cs.outline.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('Smart reminders', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800))),
+              Switch(
+                value: reminderOn,
+                onChanged: (v) async {
+                  await widget.repo.setReminderMinutes(habit.id, v ? (habit.reminderMinutes ?? 20 * 60) : null);
+                  if (!mounted) return;
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+          if (reminderOn) ...[
+            Row(
+              children: [
+                Expanded(child: Text('Time: ${_formatMinutes(habit.reminderMinutes!)}')),
+                OutlinedButton(
+                  onPressed: () async {
+                    final picked = await _pickTime(context, habit.reminderMinutes!);
+                    if (picked == null) return;
+                    await widget.repo.setReminderMinutes(habit.id, picked);
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                  child: const Text('Change'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List<Widget>.generate(7, (index) {
+                final weekday = index + 1;
+                return FilterChip(
+                  label: Text(_weekdayNameShort(weekday)),
+                  selected: habit.reminderWeekdays.contains(weekday),
+                  onSelected: (_) async {
+                    final next = List<int>.from(habit.reminderWeekdays);
+                    if (next.contains(weekday)) {
+                      if (next.length == 1) return;
+                      next.remove(weekday);
+                    } else {
+                      next.add(weekday);
+                      next.sort();
+                    }
+                    await widget.repo.setReminderOptions(habit.id, reminderWeekdays: next);
+                    if (!mounted) return;
+                    setState(() {});
+                  },
+                );
+              }),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: TextEditingController(text: habit.reminderMessage)..selection = TextSelection.collapsed(offset: habit.reminderMessage.length),
+              onSubmitted: (value) async {
+                await widget.repo.setReminderOptions(habit.id, reminderMessage: value);
+                if (!mounted) return;
+                setState(() {});
+              },
+              decoration: const InputDecoration(
+                labelText: 'Custom reminder message',
+                hintText: 'Press enter to save',
+              ),
+            ),
+            const SizedBox(height: 6),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: habit.reminderOnlyIfIncomplete,
+              onChanged: (v) async {
+                await widget.repo.setReminderOptions(habit.id, reminderOnlyIfIncomplete: v);
+                if (!mounted) return;
+                setState(() {});
+              },
+              title: const Text('Only if not completed yet'),
+              subtitle: const Text('Helpful copy for more accountable reminders.'),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: habit.reminderEveningNudge,
+              onChanged: (v) async {
+                await widget.repo.setReminderOptions(habit.id, reminderEveningNudge: v);
+                if (!mounted) return;
+                setState(() {});
+              },
+              title: const Text('Evening nudge'),
+              subtitle: const Text('Adds a softer later reminder on selected days.'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _slipCard(Habit habit) {
+    if (!habit.isQuit) return const SizedBox.shrink();
+    final slips30 = _slipCountLast30(habit);
+    final todayKey = _keyFromDate(DateTime.now());
+    final slippedToday = habit.slipDates.contains(todayKey);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.red.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.flag_outlined),
+              const SizedBox(width: 8),
+              Text('Slip log', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('Use this if there was a relapse. It stays separate from clean-day check-ins for more honest analytics.'),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () async {
+                  await widget.repo.toggleSlipToday(habit.id);
+                  if (!mounted) return;
+                  setState(() {});
+                },
+                icon: Icon(slippedToday ? Icons.undo_rounded : Icons.flag_rounded),
+                label: Text(slippedToday ? 'Undo slip today' : 'Log slip today'),
+              ),
+              Chip(label: Text('Last 30 days: $slips30 slip${slips30 == 1 ? '' : 's'}')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<int?> _pickTime(BuildContext context, int initialMinutes) async {
     final initialTime = TimeOfDay(
       hour: initialMinutes ~/ 60,
@@ -499,7 +670,6 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     final now = DateTime.now();
     final cells = _buildMonthCells(_month);
 
-    final reminderOn = current.reminderMinutes != null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Habit details')),
@@ -613,47 +783,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
             const SizedBox(height: 12),
           ],
 
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Reminder',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              Switch(
-                value: reminderOn,
-                onChanged: (v) async {
-                  if (!v) {
-                    await widget.repo.setReminderMinutes(current.id, null);
-                  } else {
-                    await widget.repo.setReminderMinutes(current.id, 20 * 60);
-                  }
-                  if (!mounted) return;
-                  setState(() {});
-                },
-              ),
-            ],
-          ),
-          if (reminderOn) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Time: ${_formatMinutes(current.reminderMinutes!)}'),
-                ),
-                OutlinedButton(
-                  onPressed: () async {
-                    final picked = await _pickTime(context, current.reminderMinutes!);
-                    if (picked == null) return;
-                    await widget.repo.setReminderMinutes(current.id, picked);
-                    if (!mounted) return;
-                    setState(() {});
-                  },
-                  child: const Text('Change'),
-                ),
-              ],
-            ),
-          ],
+          _smartReminderCard(current),
 
           const SizedBox(height: 12),
 

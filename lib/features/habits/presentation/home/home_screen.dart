@@ -31,6 +31,7 @@ enum _HomeMenuAction {
   importBackup,
   exportBackupFile,
   importBackupFile,
+  restorePoints,
 }
 
 enum _HabitFilter { all, active, completed, build, quit }
@@ -1034,6 +1035,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final targetDays = (result['targetDays'] as int?) ?? 0;
     final weeklyTarget = (result['weeklyTarget'] as int?) ?? 0;
     final reminderMinutes = (result['reminderMinutes'] as int?);
+    final reminderWeekdays = (result['reminderWeekdays'] as List?)?.whereType<int>().toList() ?? Habit.defaultReminderWeekdays;
+    final reminderOnlyIfIncomplete = (result['reminderOnlyIfIncomplete'] as bool?) ?? true;
+    final reminderEveningNudge = (result['reminderEveningNudge'] as bool?) ?? false;
+    final reminderMessage = (result['reminderMessage'] as String?) ?? '';
     final notes = (result['notes'] as String?) ?? '';
     final iconKey = (result['iconKey'] as String?) ?? Habit.defaultIconKey;
     final colorValue = (result['colorValue'] as int?) ?? Habit.defaultColorValue;
@@ -1046,6 +1051,10 @@ class _HomeScreenState extends State<HomeScreen> {
       targetDays,
       weeklyTarget,
       reminderMinutes,
+      reminderWeekdays,
+      reminderOnlyIfIncomplete,
+      reminderEveningNudge,
+      reminderMessage,
       notes,
       iconKey,
       colorValue,
@@ -1064,6 +1073,10 @@ class _HomeScreenState extends State<HomeScreen> {
           initialTargetDays: habit.targetDays,
           initialWeeklyTarget: habit.weeklyTarget,
           initialReminderMinutes: habit.reminderMinutes,
+          initialReminderWeekdays: habit.reminderWeekdays,
+          initialReminderOnlyIfIncomplete: habit.reminderOnlyIfIncomplete,
+          initialReminderEveningNudge: habit.reminderEveningNudge,
+          initialReminderMessage: habit.reminderMessage,
           initialNotes: habit.notes,
           initialIconKey: habit.iconKey,
           initialColorValue: habit.colorValue,
@@ -1079,6 +1092,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final newWeeklyTarget =
         (result['weeklyTarget'] as int?) ?? habit.weeklyTarget;
     final newReminder = (result['reminderMinutes'] as int?);
+    final newReminderWeekdays = (result['reminderWeekdays'] as List?)?.whereType<int>().toList() ?? habit.reminderWeekdays;
+    final newReminderOnlyIfIncomplete = (result['reminderOnlyIfIncomplete'] as bool?) ?? habit.reminderOnlyIfIncomplete;
+    final newReminderEveningNudge = (result['reminderEveningNudge'] as bool?) ?? habit.reminderEveningNudge;
+    final newReminderMessage = (result['reminderMessage'] as String?) ?? habit.reminderMessage;
     final newNotes = (result['notes'] as String?) ?? habit.notes;
     final newIconKey = (result['iconKey'] as String?) ?? habit.iconKey;
     final newColorValue = (result['colorValue'] as int?) ?? habit.colorValue;
@@ -1097,6 +1114,18 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (newReminder != habit.reminderMinutes) {
       await _repo.setReminderMinutes(habit.id, newReminder);
+    }
+    if (newReminderWeekdays.join(',') != habit.reminderWeekdays.join(',') ||
+        newReminderOnlyIfIncomplete != habit.reminderOnlyIfIncomplete ||
+        newReminderEveningNudge != habit.reminderEveningNudge ||
+        newReminderMessage.trim() != habit.reminderMessage.trim()) {
+      await _repo.setReminderOptions(
+        habit.id,
+        reminderWeekdays: newReminderWeekdays,
+        reminderOnlyIfIncomplete: newReminderOnlyIfIncomplete,
+        reminderEveningNudge: newReminderEveningNudge,
+        reminderMessage: newReminderMessage,
+      );
     }
     if (newNotes.trim() != habit.notes.trim()) {
       await _repo.setNotes(habit.id, newNotes);
@@ -1408,7 +1437,168 @@ class _HomeScreenState extends State<HomeScreen> {
         HapticFeedback.selectionClick();
         await _restoreBackupFromFile();
         break;
+      case _HomeMenuAction.restorePoints:
+        HapticFeedback.selectionClick();
+        await _openRestorePoints();
+        break;
     }
+  }
+
+  String _weekdayName(int weekday) {
+    const names = <int, String>{1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'};
+    return names[weekday] ?? '?';
+  }
+
+  Future<void> _openRestorePoints() async {
+    final points = await _repo.getRestorePoints();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Restore points', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text('Auto-created before imports and destructive actions.', style: Theme.of(context).textTheme.bodyMedium),
+                const SizedBox(height: 16),
+                if (points.isEmpty) const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text('No restore points yet.'),
+                ) else Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: points.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final point = points[index];
+                      final createdAt = DateTime.tryParse((point['createdAt'] as String?) ?? '');
+                      final habitCount = point['habitCount'] ?? 0;
+                      return ListTile(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        tileColor: Theme.of(context).colorScheme.surface.withOpacity(0.85),
+                        title: Text((point['label'] as String?) ?? 'Restore point'),
+                        subtitle: Text('${createdAt != null ? createdAt.toLocal().toString().substring(0, 16) : 'Unknown time'} • $habitCount habits'),
+                        trailing: Wrap(
+                          spacing: 8,
+                          children: [
+                            IconButton(
+                              tooltip: 'Delete point',
+                              onPressed: () async {
+                                await _repo.deleteRestorePoint((point['id'] as String?) ?? '');
+                                if (!mounted) return;
+                                Navigator.pop(context);
+                                await _openRestorePoints();
+                              },
+                              icon: const Icon(Icons.delete_outline),
+                            ),
+                            FilledButton(
+                              onPressed: () async {
+                                await _repo.restoreFromPoint((point['id'] as String?) ?? '');
+                                if (!mounted) return;
+                                Navigator.pop(context);
+                                setState(() {});
+                                _showAppSnackBar('Restore point applied ✅');
+                              },
+                              child: const Text('Restore'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _weeklyReviewCard(List<Habit> activeHabits, String todayKey) {
+    if (activeHabits.isEmpty) return const SizedBox.shrink();
+    final start = _startOfWeek(DateTime.now());
+    final end = start.add(const Duration(days: 6));
+    int totalChecks = 0;
+    int doneChecks = 0;
+    Habit? bestHabit;
+    Habit? hardestHabit;
+    int bestDone = -1;
+    double hardestRate = 2;
+
+    for (final habit in activeHabits) {
+      int done = 0;
+      for (int i = 0; i < 7; i++) {
+        final key = _keyFromDate(start.add(Duration(days: i)));
+        if (habit.completedDates.contains(key)) done++;
+      }
+      totalChecks += 7;
+      doneChecks += done;
+      final rate = done / 7;
+      if (done > bestDone) {
+        bestDone = done;
+        bestHabit = habit;
+      }
+      if (rate < hardestRate) {
+        hardestRate = rate;
+        hardestHabit = habit;
+      }
+    }
+
+    final percent = totalChecks == 0 ? 0 : ((doneChecks / totalChecks) * 100).round();
+    final slips = activeHabits.where((h) => h.isQuit).fold<int>(0, (sum, h) => sum + h.slipDates.where((d) {
+      final dt = DateTime.tryParse(d);
+      return dt != null && !dt.isBefore(start) && !dt.isAfter(end);
+    }).length);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.calendar_view_week_rounded),
+                const SizedBox(width: 8),
+                Text('Weekly review', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+              ]),
+              const SizedBox(height: 6),
+              Text('${start.month}/${start.day} - ${end.month}/${end.day} • $percent% completion', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.secondaryTextStyle.color)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (bestHabit != null) _miniStatChip('Best', bestHabit!.title),
+                  if (hardestHabit != null) _miniStatChip('Hardest', hardestHabit!.title),
+                  _miniStatChip('Quit slips', '$slips'),
+                  _miniStatChip('Done today', '${activeHabits.where((h) => h.completedDates.contains(todayKey)).length}/${activeHabits.length}'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStatChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+      ),
+      child: Text('$label: $value'),
+    );
   }
 
   void _openStats() {
@@ -1584,6 +1774,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   value: _HomeMenuAction.importBackupFile,
                   child: Text('Restore: Import JSON file'),
                 ),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.restorePoints,
+                  child: Text('Safety: Restore points'),
+                ),
               ],
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -1619,6 +1813,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 10),
                     _quickActionsRow(),
+                    const SizedBox(height: 10),
+                    _weeklyReviewCard(activeHabits, todayKey),
                     const SizedBox(height: 10),
                     _smartCoachCard(
                       activeHabits: activeHabits,

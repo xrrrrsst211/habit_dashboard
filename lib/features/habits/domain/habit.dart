@@ -15,6 +15,10 @@ class Habit {
   /// Skipped days do NOT count as a completion, but they do NOT break streaks.
   final Set<String> skippedDates;
 
+  /// Explicit slip dates for quit habits.
+  /// They are tracked separately for analytics/accountability.
+  final Set<String> slipDates;
+
   /// Best (max) streak across all time.
   final int bestStreak;
 
@@ -30,6 +34,12 @@ class Habit {
   /// Reminder: minutes from 00:00 (e.g. 20:30 = 1230). null = off
   final int? reminderMinutes;
 
+  /// Smart reminder settings.
+  final List<int> reminderWeekdays; // 1..7 = Mon..Sun
+  final bool reminderOnlyIfIncomplete;
+  final bool reminderEveningNudge;
+  final String reminderMessage;
+
   /// Optional note / reason for the habit
   final String notes;
 
@@ -43,6 +53,7 @@ class Habit {
   static const int defaultColorValue = 0xFF6D5DF6;
 
   static const List<String> typeValues = <String>[typeBuild, typeQuit];
+  static const List<int> defaultReminderWeekdays = <int>[1, 2, 3, 4, 5, 6, 7];
 
   static const List<String> iconKeys = <String>[
     'spark',
@@ -86,11 +97,16 @@ class Habit {
     required this.type,
     required this.completedDates,
     required this.skippedDates,
+    required this.slipDates,
     required this.bestStreak,
     required this.targetDays,
     required this.weeklyTarget,
     required this.archived,
     required this.reminderMinutes,
+    required this.reminderWeekdays,
+    required this.reminderOnlyIfIncomplete,
+    required this.reminderEveningNudge,
+    required this.reminderMessage,
     required this.notes,
     required this.iconKey,
     required this.colorValue,
@@ -102,11 +118,16 @@ class Habit {
     String? type,
     Set<String>? completedDates,
     Set<String>? skippedDates,
+    Set<String>? slipDates,
     int? bestStreak,
     int? targetDays,
     int? weeklyTarget,
     bool? archived,
     int? reminderMinutes,
+    List<int>? reminderWeekdays,
+    bool? reminderOnlyIfIncomplete,
+    bool? reminderEveningNudge,
+    String? reminderMessage,
     String? notes,
     String? iconKey,
     int? colorValue,
@@ -117,11 +138,16 @@ class Habit {
       type: _normalizeType(type ?? this.type),
       completedDates: completedDates ?? this.completedDates,
       skippedDates: skippedDates ?? this.skippedDates,
+      slipDates: slipDates ?? this.slipDates,
       bestStreak: bestStreak ?? this.bestStreak,
       targetDays: targetDays ?? this.targetDays,
       weeklyTarget: weeklyTarget ?? this.weeklyTarget,
       archived: archived ?? this.archived,
       reminderMinutes: reminderMinutes ?? this.reminderMinutes,
+      reminderWeekdays: _normalizeReminderWeekdays(reminderWeekdays ?? this.reminderWeekdays),
+      reminderOnlyIfIncomplete: reminderOnlyIfIncomplete ?? this.reminderOnlyIfIncomplete,
+      reminderEveningNudge: reminderEveningNudge ?? this.reminderEveningNudge,
+      reminderMessage: _normalizeReminderMessage(reminderMessage ?? this.reminderMessage),
       notes: _normalizeNotes(notes ?? this.notes),
       iconKey: _normalizeIconKey(iconKey ?? this.iconKey),
       colorValue: _normalizeColorValue(colorValue ?? this.colorValue),
@@ -142,11 +168,16 @@ class Habit {
         'type': type,
         'completedDates': completedDates.toList(),
         'skippedDates': skippedDates.toList(),
+        'slipDates': slipDates.toList(),
         'bestStreak': bestStreak,
         'targetDays': targetDays,
         'weeklyTarget': weeklyTarget,
         'archived': archived,
         'reminderMinutes': reminderMinutes,
+        'reminderWeekdays': reminderWeekdays,
+        'reminderOnlyIfIncomplete': reminderOnlyIfIncomplete,
+        'reminderEveningNudge': reminderEveningNudge,
+        'reminderMessage': reminderMessage,
         'notes': notes,
         'iconKey': iconKey,
         'colorValue': colorValue,
@@ -155,14 +186,19 @@ class Habit {
   static Habit fromJson(Map<String, dynamic> json) {
     final rawDates = json['completedDates'];
     final rawSkipped = json['skippedDates'];
+    final rawSlips = json['slipDates'];
 
     Set<String> dates = {};
     Set<String> skipped = {};
+    Set<String> slips = {};
     if (rawDates is List) {
       dates = rawDates.whereType<String>().toSet();
     }
     if (rawSkipped is List) {
       skipped = rawSkipped.whereType<String>().toSet();
+    }
+    if (rawSlips is List) {
+      slips = rawSlips.whereType<String>().toSet();
     }
 
     if (dates.isEmpty) {
@@ -198,11 +234,18 @@ class Habit {
       type: migratedType,
       completedDates: dates,
       skippedDates: skipped,
+      slipDates: slips,
       bestStreak: best,
       targetDays: (json['targetDays'] as int?) ?? 0,
       weeklyTarget: (json['weeklyTarget'] as int?) ?? 0,
       archived: (json['archived'] as bool?) ?? false,
       reminderMinutes: (json['reminderMinutes'] as int?),
+      reminderWeekdays: _normalizeReminderWeekdays(
+        (json['reminderWeekdays'] as List?)?.whereType<int>().toList() ?? defaultReminderWeekdays,
+      ),
+      reminderOnlyIfIncomplete: (json['reminderOnlyIfIncomplete'] as bool?) ?? true,
+      reminderEveningNudge: (json['reminderEveningNudge'] as bool?) ?? false,
+      reminderMessage: _normalizeReminderMessage((json['reminderMessage'] as String?) ?? ''),
       notes: _normalizeNotes((json['notes'] as String?) ?? ''),
       iconKey: _normalizeIconKey(
         (json['iconKey'] as String?) ?? _suggestIconKey(migratedTitle, migratedType),
@@ -385,6 +428,20 @@ class Habit {
 
   static String _normalizeNotes(String value) {
     return value.trim();
+  }
+
+  static String _normalizeReminderMessage(String value) {
+    return value.trim();
+  }
+
+  static List<int> _normalizeReminderWeekdays(List<int> values) {
+    final set = <int>{};
+    for (final value in values) {
+      if (value >= 1 && value <= 7) set.add(value);
+    }
+    if (set.isEmpty) return List<int>.from(defaultReminderWeekdays);
+    final out = set.toList()..sort();
+    return out;
   }
 
   static String _normalizeIconKey(String key) {

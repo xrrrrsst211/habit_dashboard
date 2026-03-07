@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
+import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -54,6 +55,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       result['targetDays'] as int,
       result['weeklyTarget'] as int,
       result['reminderMinutes'] as int?,
+      (result['reminderWeekdays'] as List?)?.whereType<int>().toList() ?? Habit.defaultReminderWeekdays,
+      (result['reminderOnlyIfIncomplete'] as bool?) ?? true,
+      (result['reminderEveningNudge'] as bool?) ?? false,
+      (result['reminderMessage'] as String?) ?? '',
       (result['notes'] as String?) ?? '',
       result['iconKey'] as String,
       result['colorValue'] as int,

@@ -8,11 +8,6 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
-/// Handles local notifications for habit reminders.
-///
-/// - Schedules ONE daily notification per habit (if reminderMinutes != null).
-/// - Cancels when reminder is turned off or habit is archived/deleted.
-/// - On app start, re-syncs schedules from persisted habits.
 class NotificationService {
   NotificationService._();
 
@@ -24,7 +19,6 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    // Timezone init (required for zonedSchedule).
     tz.initializeTimeZones();
     final localTz = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(localTz));
@@ -35,7 +29,6 @@ class NotificationService {
 
     await _plugin.initialize(initSettings);
 
-    // Permissions (Android 13+ and iOS).
     try {
       final android = _plugin
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
@@ -51,14 +44,11 @@ class NotificationService {
     _initialized = true;
   }
 
-  /// Re-create all schedules from the provided habits.
-  /// (Useful on cold start or after you changed reminder times.)
   Future<void> syncFromHabits(List<Habit> habits) async {
     if (!_initialized) {
       await init();
     }
 
-    // Cancel all then re-schedule only the active reminders.
     await _plugin.cancelAll();
 
     for (final h in habits) {
@@ -75,8 +65,7 @@ class NotificationService {
   }) async {
     if (!_initialized) await init();
 
-    final id = _notifIdForHabit(habit.id);
-    final when = _nextInstanceOfMinutes(minutesFromMidnight);
+    await cancelHabitReminder(habit.id);
 
     const androidDetails = AndroidNotificationDetails(
       'habit_reminders',
@@ -87,34 +76,60 @@ class NotificationService {
     );
 
     const iosDetails = DarwinNotificationDetails();
-
     const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
-    await _plugin.zonedSchedule(
-      id,
-      'Habit reminder',
-      habit.title,
-      when,
-      details,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: DateTimeComponents.time, // repeats daily
-      payload: habit.id,
-    );
+    final weekdays = habit.reminderWeekdays.isEmpty
+        ? Habit.defaultReminderWeekdays
+        : habit.reminderWeekdays;
+
+    for (final weekday in weekdays) {
+      final when = _nextInstanceOfWeekday(weekday, minutesFromMidnight);
+      await _plugin.zonedSchedule(
+        _notifIdForHabit(habit.id, weekday),
+        'Habit reminder',
+        _primaryMessageFor(habit),
+        when,
+        details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        payload: habit.id,
+      );
+
+      if (habit.reminderEveningNudge) {
+        final nudgeMinutes = min(minutesFromMidnight + 120, 22 * 60);
+        final nudgeWhen = _nextInstanceOfWeekday(weekday, nudgeMinutes);
+        await _plugin.zonedSchedule(
+          _notifIdForHabit(habit.id, weekday, isNudge: true),
+          'Protect your streak',
+          _nudgeMessageFor(habit),
+          nudgeWhen,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+          payload: '${habit.id}::nudge',
+        );
+      }
+    }
 
     if (kDebugMode) {
       // ignore: avoid_print
-      print('[notifications] scheduled "${habit.title}" at $minutesFromMidnight -> $when (id=$id)');
+      print('[notifications] synced smart reminder for ${habit.title}');
     }
   }
 
   Future<void> cancelHabitReminder(String habitId) async {
     if (!_initialized) await init();
-    await _plugin.cancel(_notifIdForHabit(habitId));
+    for (var weekday = 1; weekday <= 7; weekday++) {
+      await _plugin.cancel(_notifIdForHabit(habitId, weekday));
+      await _plugin.cancel(_notifIdForHabit(habitId, weekday, isNudge: true));
+    }
   }
 
-  tz.TZDateTime _nextInstanceOfMinutes(int minutesFromMidnight) {
+  tz.TZDateTime _nextInstanceOfWeekday(int weekday, int minutesFromMidnight) {
     final now = tz.TZDateTime.now(tz.local);
     final hour = minutesFromMidnight ~/ 60;
     final minute = minutesFromMidnight % 60;
@@ -128,20 +143,36 @@ class NotificationService {
       minute,
     );
 
-    if (!scheduled.isAfter(now)) {
+    while (scheduled.weekday != weekday || !scheduled.isAfter(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
     return scheduled;
   }
 
-  int _notifIdForHabit(String habitId) {
-    // Stable 32-bit hash (FNV-1a) -> within Android notification id range.
+  int _notifIdForHabit(String habitId, int weekday, {bool isNudge = false}) {
     const int fnvPrime = 16777619;
     int hash = 2166136261;
-    for (final codeUnit in habitId.codeUnits) {
+    for (final codeUnit in '${habitId}_${weekday}_${isNudge ? 'n' : 'p'}'.codeUnits) {
       hash ^= codeUnit;
       hash = (hash * fnvPrime) & 0xFFFFFFFF;
     }
     return max(1, hash & 0x7FFFFFFF);
+  }
+
+  String _primaryMessageFor(Habit habit) {
+    final custom = habit.reminderMessage.trim();
+    if (custom.isNotEmpty) return custom;
+    return habit.isQuit ? 'Stay clean today — ${habit.title}' : habit.title;
+  }
+
+  String _nudgeMessageFor(Habit habit) {
+    if (habit.reminderOnlyIfIncomplete) {
+      return habit.isQuit
+          ? 'If you have not checked in yet, protect your clean streak tonight.'
+          : 'If you have not checked in yet, there is still time to complete this today.';
+    }
+    return habit.isQuit
+        ? 'Evening nudge for ${habit.title}. Keep the clean streak alive.'
+        : 'Evening nudge for ${habit.title}. Still time today.';
   }
 }

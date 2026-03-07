@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class HabitRepository {
   static const _storageKey = 'habits_v1';
+  static const _restorePointsKey = 'habit_restore_points_v1';
+  static const int _maxRestorePoints = 8;
 
   final List<Habit> _habits = [];
   bool _initialized = false;
@@ -73,12 +75,17 @@ class HabitRepository {
         title: 'Drink water',
         completedDates: <String>{},
         skippedDates: <String>{},
+        slipDates: <String>{},
         bestStreak: 0,
         type: Habit.typeBuild,
         targetDays: 21,
         weeklyTarget: 0,
         archived: false,
         reminderMinutes: null,
+        reminderWeekdays: Habit.defaultReminderWeekdays,
+        reminderOnlyIfIncomplete: true,
+        reminderEveningNudge: false,
+        reminderMessage: '',
         notes: 'A small daily win that helps energy and focus.',
         iconKey: 'water',
         colorValue: 0xFF0EA5E9,
@@ -88,12 +95,17 @@ class HabitRepository {
         title: 'Workout',
         completedDates: <String>{},
         skippedDates: <String>{},
+        slipDates: <String>{},
         bestStreak: 0,
         type: Habit.typeBuild,
         targetDays: 30,
         weeklyTarget: 0,
         archived: false,
         reminderMinutes: null,
+        reminderWeekdays: Habit.defaultReminderWeekdays,
+        reminderOnlyIfIncomplete: true,
+        reminderEveningNudge: false,
+        reminderMessage: '',
         notes: 'Even a short session counts. Consistency first.',
         iconKey: 'fitness',
         colorValue: 0xFFEF4444,
@@ -103,12 +115,17 @@ class HabitRepository {
         title: 'Read 20 minutes',
         completedDates: <String>{},
         skippedDates: <String>{},
+        slipDates: <String>{},
         bestStreak: 0,
         type: Habit.typeBuild,
         targetDays: 0,
         weeklyTarget: 4,
         archived: false,
         reminderMinutes: null,
+        reminderWeekdays: Habit.defaultReminderWeekdays,
+        reminderOnlyIfIncomplete: true,
+        reminderEveningNudge: false,
+        reminderMessage: '',
         notes: 'A calm daily habit for growth and focus.',
         iconKey: 'book',
         colorValue: 0xFFF59E0B,
@@ -118,12 +135,17 @@ class HabitRepository {
         title: 'No vaping',
         completedDates: <String>{},
         skippedDates: <String>{},
+        slipDates: <String>{},
         bestStreak: 0,
         type: Habit.typeQuit,
         targetDays: 14,
         weeklyTarget: 0,
         archived: false,
         reminderMinutes: null,
+        reminderWeekdays: Habit.defaultReminderWeekdays,
+        reminderOnlyIfIncomplete: true,
+        reminderEveningNudge: false,
+        reminderMessage: '',
         notes: 'Breathe easier, save money, feel cleaner.',
         iconKey: 'no_vape',
         colorValue: 0xFF7C3AED,
@@ -241,6 +263,10 @@ Future<void> toggleSkipToday(String habitId) async {
     int targetDays,
     int weeklyTarget,
     int? reminderMinutes,
+    List<int> reminderWeekdays,
+    bool reminderOnlyIfIncomplete,
+    bool reminderEveningNudge,
+    String reminderMessage,
     String notes,
     String iconKey,
     int colorValue,
@@ -264,11 +290,16 @@ Future<void> toggleSkipToday(String habitId) async {
       type: type,
       completedDates: <String>{},
       skippedDates: <String>{},
+      slipDates: <String>{},
       bestStreak: 0,
       targetDays: normalizedTargetDays,
       weeklyTarget: normalizedWeekly,
       archived: false,
       reminderMinutes: reminderMinutes,
+      reminderWeekdays: reminderWeekdays,
+      reminderOnlyIfIncomplete: reminderOnlyIfIncomplete,
+      reminderEveningNudge: reminderEveningNudge,
+      reminderMessage: reminderMessage.trim(),
       notes: notes.trim(),
       iconKey: iconKey,
       colorValue: colorValue,
@@ -286,6 +317,7 @@ Future<void> toggleSkipToday(String habitId) async {
   }
 
   Future<void> removeHabit(String id) async {
+    await _createRestorePoint('Before deleting habit');
     _habits.removeWhere((h) => h.id == id);
 
     // Cancel notification.
@@ -402,6 +434,7 @@ Future<void> toggleSkipToday(String habitId) async {
   }
 
   Future<void> restartHabitProgress(String id) async {
+    await _createRestorePoint('Before restarting progress');
     final i = _habits.indexWhere((h) => h.id == id);
     if (i == -1) return;
 
@@ -410,6 +443,7 @@ Future<void> toggleSkipToday(String habitId) async {
     _habits[i] = _habits[i].copyWith(
       completedDates: <String>{},
       skippedDates: <String>{},
+      slipDates: <String>{},
       bestStreak: 0,
     );
 
@@ -465,6 +499,73 @@ Future<void> toggleSkipToday(String habitId) async {
     }
   }
 
+
+  Future<void> setReminderOptions(
+    String id, {
+    List<int>? reminderWeekdays,
+    bool? reminderOnlyIfIncomplete,
+    bool? reminderEveningNudge,
+    String? reminderMessage,
+  }) async {
+    final i = _habits.indexWhere((h) => h.id == id);
+    if (i == -1) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final updated = _habits[i].copyWith(
+      reminderWeekdays: reminderWeekdays,
+      reminderOnlyIfIncomplete: reminderOnlyIfIncomplete,
+      reminderEveningNudge: reminderEveningNudge,
+      reminderMessage: reminderMessage,
+    );
+    _habits[i] = updated;
+
+    await _save(prefs);
+
+    if (updated.archived) {
+      await NotificationService.instance.cancelHabitReminder(id);
+      return;
+    }
+    if (updated.reminderMinutes != null) {
+      await NotificationService.instance.scheduleHabitReminder(
+        habit: updated,
+        minutesFromMidnight: updated.reminderMinutes!,
+      );
+    }
+  }
+
+  Future<void> toggleSlipDate(String habitId, String dateKey) async {
+    final i = _habits.indexWhere((h) => h.id == habitId);
+    if (i == -1) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final current = _habits[i];
+    final newSlips = Set<String>.from(current.slipDates);
+    final newDone = Set<String>.from(current.completedDates);
+    final newSkipped = Set<String>.from(current.skippedDates);
+
+    if (newSlips.contains(dateKey)) {
+      newSlips.remove(dateKey);
+    } else {
+      newSlips.add(dateKey);
+      newDone.remove(dateKey);
+      newSkipped.remove(dateKey);
+    }
+
+    final best = Habit.calcBestStreakPublic(newDone, newSkipped);
+    _habits[i] = current.copyWith(
+      completedDates: newDone,
+      skippedDates: newSkipped,
+      slipDates: newSlips,
+      bestStreak: best,
+    );
+
+    await _save(prefs);
+  }
+
+  Future<void> toggleSlipToday(String habitId) async {
+    await toggleSlipDate(habitId, _todayKey());
+  }
+
   /// Reorder by IDs (safe when you have filters/search applied).
   Future<void> reorderByIds(int oldIndex, int newIndex, List<String> visibleIds) async {
     if (oldIndex < 0 || oldIndex >= visibleIds.length) return;
@@ -498,6 +599,7 @@ Future<void> toggleSkipToday(String habitId) async {
   // ---------- menu actions ----------
 
   Future<void> resetToday() async {
+    await _createRestorePoint('Before resetting today');
     final prefs = await SharedPreferences.getInstance();
     final today = _todayKey();
 
@@ -505,17 +607,19 @@ Future<void> toggleSkipToday(String habitId) async {
       final h = _habits[i];
 
       // Clear BOTH "done" and "skipped" for today (reset means no status).
-      final hadAny = h.completedDates.contains(today) || h.skippedDates.contains(today);
+      final hadAny = h.completedDates.contains(today) || h.skippedDates.contains(today) || h.slipDates.contains(today);
       if (!hadAny) continue;
 
       final newDone = Set<String>.from(h.completedDates)..remove(today);
       final newSkipped = Set<String>.from(h.skippedDates)..remove(today);
+      final newSlips = Set<String>.from(h.slipDates)..remove(today);
 
       final best = Habit.calcBestStreakPublic(newDone, newSkipped);
 
       _habits[i] = h.copyWith(
         completedDates: newDone,
         skippedDates: newSkipped,
+        slipDates: newSlips,
         bestStreak: best,
       );
     }
@@ -533,12 +637,14 @@ Future<void> toggleSkipToday(String habitId) async {
       final newDone = Set<String>.from(h.completedDates)..add(today);
       // Can't be both done and skipped on the same day.
       final newSkipped = Set<String>.from(h.skippedDates)..remove(today);
+      final newSlips = Set<String>.from(h.slipDates)..remove(today);
 
       final best = Habit.calcBestStreakPublic(newDone, newSkipped);
 
       _habits[i] = h.copyWith(
         completedDates: newDone,
         skippedDates: newSkipped,
+        slipDates: newSlips,
         bestStreak: best,
       );
     }
@@ -561,7 +667,7 @@ Future<void> toggleSkipToday(String habitId) async {
   Map<String, dynamic> exportBackupPayload() {
     return <String, dynamic>{
       'app': 'habit_dashboard',
-      'formatVersion': 2,
+      'formatVersion': 3,
       'exportedAt': DateTime.now().toIso8601String(),
       'habitCount': _habits.length,
       'habits': _habits.map((h) => h.toJson()).toList(),
@@ -580,6 +686,7 @@ Future<void> toggleSkipToday(String habitId) async {
   /// Supports both legacy List backups and wrapped file backups.
   /// Throws [FormatException] if JSON is invalid.
   Future<void> importHabitsJson(String rawJson) async {
+    await _createRestorePoint('Before importing backup');
     final decoded = jsonDecode(rawJson);
 
     List<dynamic> items;
@@ -611,6 +718,73 @@ Future<void> toggleSkipToday(String habitId) async {
 
     // Rebuild notification schedules based on restored data.
     await NotificationService.instance.syncFromHabits(_habits);
+  }
+
+
+  Future<void> _createRestorePoint(String label) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_restorePointsKey);
+    List<Map<String, dynamic>> points = <Map<String, dynamic>>[];
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          points = decoded.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        }
+      } catch (_) {}
+    }
+
+    points.insert(0, <String, dynamic>{
+      'id': DateTime.now().microsecondsSinceEpoch.toString(),
+      'label': label,
+      'createdAt': DateTime.now().toIso8601String(),
+      'habitCount': _habits.length,
+      'habits': _habits.map((h) => h.toJson()).toList(),
+    });
+
+    if (points.length > _maxRestorePoints) {
+      points = points.take(_maxRestorePoints).toList();
+    }
+    await prefs.setString(_restorePointsKey, jsonEncode(points));
+  }
+
+  Future<List<Map<String, dynamic>>> getRestorePoints() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_restorePointsKey);
+    if (raw == null || raw.trim().isEmpty) return <Map<String, dynamic>>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return <Map<String, dynamic>>[];
+      return decoded.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (_) {
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<void> restoreFromPoint(String restorePointId) async {
+    final points = await getRestorePoints();
+    final point = points.cast<Map<String, dynamic>?>().firstWhere((e) => e?['id'] == restorePointId, orElse: () => null);
+    if (point == null) return;
+    final habitsRaw = point['habits'];
+    if (habitsRaw is! List) return;
+    final incoming = <Habit>[];
+    for (final item in habitsRaw) {
+      if (item is! Map) continue;
+      incoming.add(_ensureBestStreakConsistent(Habit.fromJson(Map<String, dynamic>.from(item))));
+    }
+    final prefs = await SharedPreferences.getInstance();
+    _habits
+      ..clear()
+      ..addAll(incoming);
+    await _save(prefs);
+    await NotificationService.instance.syncFromHabits(_habits);
+  }
+
+  Future<void> deleteRestorePoint(String restorePointId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final points = await getRestorePoints();
+    points.removeWhere((e) => e['id'] == restorePointId);
+    await prefs.setString(_restorePointsKey, jsonEncode(points));
   }
 
   // ---------- helpers ----------

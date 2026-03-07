@@ -7,6 +7,10 @@ class AddHabitScreen extends StatefulWidget {
   final int? initialTargetDays;
   final int? initialWeeklyTarget;
   final int? initialReminderMinutes;
+  final List<int>? initialReminderWeekdays;
+  final bool? initialReminderOnlyIfIncomplete;
+  final bool? initialReminderEveningNudge;
+  final String? initialReminderMessage;
   final String? initialNotes;
   final String? initialIconKey;
   final int? initialColorValue;
@@ -18,6 +22,10 @@ class AddHabitScreen extends StatefulWidget {
     this.initialTargetDays,
     this.initialWeeklyTarget,
     this.initialReminderMinutes,
+    this.initialReminderWeekdays,
+    this.initialReminderOnlyIfIncomplete,
+    this.initialReminderEveningNudge,
+    this.initialReminderMessage,
     this.initialNotes,
     this.initialIconKey,
     this.initialColorValue,
@@ -30,11 +38,15 @@ class AddHabitScreen extends StatefulWidget {
 class _AddHabitScreenState extends State<AddHabitScreen> {
   late final TextEditingController _controller;
   late final TextEditingController _notesController;
+  late final TextEditingController _reminderMessageController;
 
   late String _type;
   late int _targetDays;
   late int _weeklyTarget;
   int? _reminderMinutes;
+  late List<int> _reminderWeekdays;
+  late bool _reminderOnlyIfIncomplete;
+  late bool _reminderEveningNudge;
   late String _iconKey;
   late int _colorValue;
 
@@ -48,10 +60,14 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     super.initState();
     _controller = TextEditingController(text: widget.initialTitle ?? '');
     _notesController = TextEditingController(text: widget.initialNotes ?? '');
+    _reminderMessageController = TextEditingController(text: widget.initialReminderMessage ?? '');
     _type = widget.initialType ?? Habit.typeBuild;
     _targetDays = widget.initialTargetDays ?? 0;
     _weeklyTarget = widget.initialWeeklyTarget ?? 0;
     _reminderMinutes = widget.initialReminderMinutes;
+    _reminderWeekdays = List<int>.from(widget.initialReminderWeekdays ?? Habit.defaultReminderWeekdays);
+    _reminderOnlyIfIncomplete = widget.initialReminderOnlyIfIncomplete ?? true;
+    _reminderEveningNudge = widget.initialReminderEveningNudge ?? false;
     _iconKey = widget.initialIconKey ?? Habit.defaultIconKey;
     _colorValue = widget.initialColorValue ?? Habit.defaultColorValue;
 
@@ -62,13 +78,11 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   void dispose() {
     _controller.dispose();
     _notesController.dispose();
+    _reminderMessageController.dispose();
     super.dispose();
   }
 
-  String _labelFor(int d) {
-    if (d == 0) return 'No limit';
-    return '$d days';
-  }
+  String _labelFor(int d) => d == 0 ? 'No limit' : '$d days';
 
   String _weeklyLabelFor(int n) {
     if (n == 0) return 'Off';
@@ -79,22 +93,32 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   String _formatMinutes(int minutes) {
     final h = minutes ~/ 60;
     final m = minutes % 60;
-    final hh = h.toString().padLeft(2, '0');
-    final mm = m.toString().padLeft(2, '0');
-    return '$hh:$mm';
+    return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
+  }
+
+  String _weekdayLabel(int weekday) {
+    const labels = <int, String>{1: 'M', 2: 'T', 3: 'W', 4: 'T', 5: 'F', 6: 'S', 7: 'S'};
+    return labels[weekday] ?? '?';
   }
 
   Future<void> _pickTime() async {
     final initial = _reminderMinutes ?? (20 * 60);
     final initialTime = TimeOfDay(hour: initial ~/ 60, minute: initial % 60);
-
-    final t = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-
+    final t = await showTimePicker(context: context, initialTime: initialTime);
     if (t == null) return;
     setState(() => _reminderMinutes = t.hour * 60 + t.minute);
+  }
+
+  void _toggleWeekday(int weekday) {
+    final next = List<int>.from(_reminderWeekdays);
+    if (next.contains(weekday)) {
+      if (next.length == 1) return;
+      next.remove(weekday);
+    } else {
+      next.add(weekday);
+      next.sort();
+    }
+    setState(() => _reminderWeekdays = next);
   }
 
   void _submit() {
@@ -107,6 +131,10 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       'targetDays': _targetDays,
       'weeklyTarget': _weeklyTarget,
       'reminderMinutes': _reminderMinutes,
+      'reminderWeekdays': _reminderWeekdays,
+      'reminderOnlyIfIncomplete': _reminderOnlyIfIncomplete,
+      'reminderEveningNudge': _reminderEveningNudge,
+      'reminderMessage': _reminderMessageController.text.trim(),
       'notes': _notesController.text.trim(),
       'iconKey': _iconKey,
       'colorValue': _colorValue,
@@ -124,11 +152,16 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       type: _type,
       completedDates: const <String>{},
       skippedDates: const <String>{},
+      slipDates: const <String>{},
       bestStreak: 0,
       targetDays: _targetDays,
       weeklyTarget: _weeklyTarget,
       archived: false,
       reminderMinutes: _reminderMinutes,
+      reminderWeekdays: _reminderWeekdays,
+      reminderOnlyIfIncomplete: _reminderOnlyIfIncomplete,
+      reminderEveningNudge: _reminderEveningNudge,
+      reminderMessage: _reminderMessageController.text.trim(),
       notes: _notesController.text.trim(),
       iconKey: _iconKey,
       colorValue: _colorValue,
@@ -316,70 +349,50 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 18),
-              Text(
-                'Goal style',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              Text('Goal style', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
                 value: _weeklyTarget,
                 items: _weeklyOptions
-                    .map(
-                      (n) => DropdownMenuItem<int>(
-                        value: n,
-                        child: Text('Weekly goal: ${_weeklyLabelFor(n)}'),
-                      ),
-                    )
+                    .map((n) => DropdownMenuItem<int>(
+                          value: n,
+                          child: Text('Weekly goal: ${_weeklyLabelFor(n)}'),
+                        ))
                     .toList(),
                 onChanged: (v) {
                   if (v == null) return;
                   setState(() {
                     _weeklyTarget = v;
-                    if (_weeklyTarget > 0) {
-                      _targetDays = 0;
-                    }
+                    if (_weeklyTarget > 0) _targetDays = 0;
                   });
                 },
-                decoration: const InputDecoration(),
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<int>(
                 value: _targetDays,
                 items: _options
-                    .map(
-                      (d) => DropdownMenuItem<int>(
-                        value: d,
-                        child: Text('Duration goal: ${_labelFor(d)}'),
-                      ),
-                    )
+                    .map((d) => DropdownMenuItem<int>(
+                          value: d,
+                          child: Text('Duration goal: ${_labelFor(d)}'),
+                        ))
                     .toList(),
                 onChanged: (v) {
                   if (v == null) return;
                   setState(() {
                     _targetDays = v;
-                    if (_targetDays > 0) {
-                      _weeklyTarget = 0;
-                    }
+                    if (_targetDays > 0) _weeklyTarget = 0;
                   });
                 },
-                decoration: const InputDecoration(),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Reminder',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    child: Text('Reminder', style: Theme.of(context).textTheme.titleMedium),
                   ),
                   Switch(
                     value: reminderOn,
-                    onChanged: (v) {
-                      setState(() {
-                        _reminderMinutes = v ? (20 * 60) : null;
-                      });
-                    },
+                    onChanged: (v) => setState(() => _reminderMinutes = v ? (20 * 60) : null),
                   ),
                 ],
               ),
@@ -387,17 +400,49 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Time: ${_formatMinutes(_reminderMinutes!)}',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed: _pickTime,
-                      child: const Text('Change'),
-                    ),
+                    Expanded(child: Text('Time: ${_formatMinutes(_reminderMinutes!)}')),
+                    OutlinedButton(onPressed: _pickTime, child: const Text('Change')),
                   ],
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Reminder days', style: Theme.of(context).textTheme.titleSmall),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List<Widget>.generate(7, (index) {
+                    final weekday = index + 1;
+                    return FilterChip(
+                      label: Text(_weekdayLabel(weekday)),
+                      selected: _reminderWeekdays.contains(weekday),
+                      onSelected: (_) => _toggleWeekday(weekday),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _reminderMessageController,
+                  decoration: const InputDecoration(
+                    labelText: 'Custom reminder message',
+                    hintText: 'Optional',
+                  ),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _reminderOnlyIfIncomplete,
+                  onChanged: (v) => setState(() => _reminderOnlyIfIncomplete = v),
+                  title: const Text('Only if not completed yet'),
+                  subtitle: const Text('Useful wording for nudges and accountability.'),
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  value: _reminderEveningNudge,
+                  onChanged: (v) => setState(() => _reminderEveningNudge = v),
+                  title: const Text('Evening nudge'),
+                  subtitle: const Text('Adds a softer later reminder on selected days.'),
                 ),
               ],
               const SizedBox(height: 20),
