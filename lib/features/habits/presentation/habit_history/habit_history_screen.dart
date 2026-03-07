@@ -237,6 +237,77 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
+
+  List<DateTime> _sortedSlipDates(Habit habit) {
+    final dates = habit.slipDates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .map(_dateOnly)
+        .toList()
+      ..sort();
+    return dates;
+  }
+
+  int _cleanRunBeforeSlip(Habit habit, DateTime slipDate) {
+    int cleanDays = 0;
+    DateTime cursor = _dateOnly(slipDate).subtract(const Duration(days: 1));
+    while (true) {
+      final key = _keyFromDate(cursor);
+      if (habit.skippedDates.contains(key)) {
+        cursor = cursor.subtract(const Duration(days: 1));
+        continue;
+      }
+      if (habit.completedDates.contains(key)) {
+        cleanDays += 1;
+        cursor = cursor.subtract(const Duration(days: 1));
+        continue;
+      }
+      break;
+    }
+    return cleanDays;
+  }
+
+  List<int> _cleanRunsBeforeSlips(Habit habit) {
+    return _sortedSlipDates(habit).map((date) => _cleanRunBeforeSlip(habit, date)).toList();
+  }
+
+  double _averageCleanRunBeforeSlip(Habit habit) {
+    final runs = _cleanRunsBeforeSlips(habit);
+    if (runs.isEmpty) return 0;
+    return runs.reduce((a, b) => a + b) / runs.length;
+  }
+
+  int _daysSinceLastSlip(Habit habit) {
+    final slips = _sortedSlipDates(habit);
+    if (slips.isEmpty) return -1;
+    final today = _dateOnly(DateTime.now());
+    return today.difference(slips.last).inDays;
+  }
+
+  String _intelligenceLine(Habit habit) {
+    final weekdayCounts = _slipWeekdayCounts(habit, 90);
+    final topSlipDay = weekdayCounts.isEmpty
+        ? null
+        : weekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final avgRun = _averageCleanRunBeforeSlip(habit);
+    final daysSince = _daysSinceLastSlip(habit);
+    final slips7 = _countSlipsInLastDays(habit, 7);
+    if (habit.slipDates.isEmpty) {
+      return 'No relapse data yet. Keep stacking clean days and only add complexity once the streak feels steady.';
+    }
+    if (slips7 > 0 && topSlipDay != null) {
+      return 'Recent pressure is up, especially around ${_weekdayName(topSlipDay.key)}. That day needs the strongest guardrail.';
+    }
+    if (avgRun >= 7) {
+      return daysSince >= 7
+          ? 'You already hold about ${avgRun.round()} clean days per run. Your next jump comes from protecting the transition into the second week.'
+          : 'Your pattern suggests slips often appear after about ${avgRun.round()} clean days. Stay extra deliberate right now.';
+    }
+    return topSlipDay == null
+        ? 'Your quit habit still looks fragile early. Shrink the goal for high-risk days and keep the barrier low.'
+        : '${_weekdayName(topSlipDay.key)} is your current weak point. Pre-decide the substitute behavior for that day.';
+  }
+
   Widget _slipInsightsCard(Habit habit) {
     if (!habit.isQuit) return const SizedBox.shrink();
     final slips7 = _countSlipsInLastDays(habit, 7);
@@ -246,6 +317,8 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
         ? null
         : weekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
     final recentSlips = _recentSlipDates(habit);
+    final avgRun = _averageCleanRunBeforeSlip(habit);
+    final daysSinceLast = _daysSinceLastSlip(habit);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -283,7 +356,30 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
                   subtitle: topSlipDay == null ? 'No slips logged yet.' : '${topSlipDay.value} in the last 90 days',
                 ),
               ),
+              SizedBox(
+                width: 160,
+                child: _statCard(
+                  icon: Icons.shield_moon_outlined,
+                  label: 'Avg clean run',
+                  value: avgRun <= 0 ? '—' : '${avgRun.round()} days',
+                  subtitle: 'Before a slip is logged',
+                ),
+              ),
+              SizedBox(
+                width: 160,
+                child: _statCard(
+                  icon: Icons.timelapse_rounded,
+                  label: 'Since last slip',
+                  value: daysSinceLast < 0 ? 'Clean' : '${daysSinceLast} days',
+                  subtitle: daysSinceLast < 0 ? 'No relapse history yet' : 'Current recovery runway',
+                ),
+              ),
             ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            _intelligenceLine(habit),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.35),
           ),
           if (recentSlips.isNotEmpty) ...[
             const SizedBox(height: 14),
@@ -299,7 +395,6 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
       ),
     );
   }
-
 
   Widget _motivationCard(Habit habit) {
     final notes = habit.notes.trim();

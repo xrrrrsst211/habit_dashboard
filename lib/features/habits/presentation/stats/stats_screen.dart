@@ -90,6 +90,99 @@ class _StatsScreenState extends State<StatsScreen> {
     return count;
   }
 
+
+  int _doneCountWindow(Habit habit, int days, {int offsetDays = 0}) {
+    final today = _dateOnly(DateTime.now()).subtract(Duration(days: offsetDays));
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.completedDates.contains(_keyFromDate(date))) count++;
+    }
+    return count;
+  }
+
+  int _skipCountWindow(Habit habit, int days, {int offsetDays = 0}) {
+    final today = _dateOnly(DateTime.now()).subtract(Duration(days: offsetDays));
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.skippedDates.contains(_keyFromDate(date))) count++;
+    }
+    return count;
+  }
+
+  int _activeCountWindow(Habit habit, int days, {int offsetDays = 0}) {
+    return max(0, days - _skipCountWindow(habit, days, offsetDays: offsetDays));
+  }
+
+  double _completionRateWindow(Habit habit, int days, {int offsetDays = 0}) {
+    final active = _activeCountWindow(habit, days, offsetDays: offsetDays);
+    if (active == 0) return 0;
+    return _doneCountWindow(habit, days, offsetDays: offsetDays) / active;
+  }
+
+  int _slipCountWindow(Habit habit, int days, {int offsetDays = 0}) {
+    final today = _dateOnly(DateTime.now()).subtract(Duration(days: offsetDays));
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.slipDates.contains(_keyFromDate(date))) count++;
+    }
+    return count;
+  }
+
+  List<int> _cleanRunsBeforeSlips(Habit habit) {
+    final slips = habit.slipDates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .map(_dateOnly)
+        .toList()
+      ..sort();
+    final List<int> runs = <int>[];
+    for (final slipDate in slips) {
+      int cleanDays = 0;
+      DateTime cursor = slipDate.subtract(const Duration(days: 1));
+      while (true) {
+        final key = _keyFromDate(cursor);
+        if (habit.skippedDates.contains(key)) {
+          cursor = cursor.subtract(const Duration(days: 1));
+          continue;
+        }
+        if (habit.completedDates.contains(key)) {
+          cleanDays += 1;
+          cursor = cursor.subtract(const Duration(days: 1));
+          continue;
+        }
+        break;
+      }
+      runs.add(cleanDays);
+    }
+    return runs;
+  }
+
+  double _avgCleanRunBeforeSlip(Habit habit) {
+    final runs = _cleanRunsBeforeSlips(habit);
+    if (runs.isEmpty) return 0;
+    return runs.reduce((a, b) => a + b) / runs.length;
+  }
+
+  int _daysSinceLastSlip(Habit habit) {
+    final slips = habit.slipDates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .map(_dateOnly)
+        .toList()
+      ..sort();
+    if (slips.isEmpty) return -1;
+    return _dateOnly(DateTime.now()).difference(slips.last).inDays;
+  }
+
+  String _deltaLabel(double delta) {
+    final pts = (delta * 100).round();
+    if (pts == 0) return 'Flat vs previous window';
+    return pts > 0 ? '+$pts pts vs previous window' : '$pts pts vs previous window';
+  }
+
   Map<int, int> _slipWeekdayCounts(List<Habit> habits, int days) {
     final today = _dateOnly(DateTime.now());
     final Map<int, int> result = <int, int>{};
@@ -285,6 +378,42 @@ class _StatsScreenState extends State<StatsScreen> {
     final slipWeekdayCounts = _slipWeekdayCounts(shownHabits, _selectedDays);
     final topSlipWeekday = slipWeekdayCounts.isEmpty ? null : slipWeekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
     final slipLeaders = _slipLeaders(shownHabits, _selectedDays);
+    final previousTotalDone = shownHabits.fold<int>(0, (sum, h) => sum + _doneCountWindow(h, _selectedDays, offsetDays: _selectedDays));
+    final previousTotalActive = shownHabits.fold<int>(0, (sum, h) => sum + _activeCountWindow(h, _selectedDays, offsetDays: _selectedDays));
+    final previousTotalSlips = shownHabits.where((h) => h.isQuit).fold<int>(0, (sum, h) => sum + _slipCountWindow(h, _selectedDays, offsetDays: _selectedDays));
+    final previousRangeRate = previousTotalActive == 0 ? 0.0 : previousTotalDone / previousTotalActive;
+    final rangeDelta = rangeRate - previousRangeRate;
+    Habit? mostImprovedHabit;
+    double mostImprovedDelta = -999;
+    Habit? biggestDipHabit;
+    double biggestDipDelta = 999;
+    for (final habit in shownHabits) {
+      final currentRate = _completionRateWindow(habit, _selectedDays);
+      final previousRate = _completionRateWindow(habit, _selectedDays, offsetDays: _selectedDays);
+      final delta = currentRate - previousRate;
+      if (delta > mostImprovedDelta) {
+        mostImprovedDelta = delta;
+        mostImprovedHabit = habit;
+      }
+      if (delta < biggestDipDelta) {
+        biggestDipDelta = delta;
+        biggestDipHabit = habit;
+      }
+    }
+    final quitHabits = shownHabits.where((h) => h.isQuit).toList();
+    Habit? quitMomentumHabit;
+    double quitMomentumScore = -1;
+    double avgCleanRunAcrossQuit = 0;
+    if (quitHabits.isNotEmpty) {
+      avgCleanRunAcrossQuit = quitHabits.fold<double>(0, (sum, h) => sum + _avgCleanRunBeforeSlip(h)) / quitHabits.length;
+      for (final habit in quitHabits) {
+        final score = _calcStreak(habit).toDouble() - (_slipCount(habit, _selectedDays) * 2);
+        if (score > quitMomentumScore) {
+          quitMomentumScore = score;
+          quitMomentumHabit = habit;
+        }
+      }
+    }
 
     final latestWeek = weekStats.isNotEmpty ? weekStats.last : null;
     final previousWeek = weekStats.length > 1 ? weekStats[weekStats.length - 2] : null;
@@ -561,6 +690,66 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
           ),
           const SizedBox(height: 14),
+          _InsightCard(
+            title: 'Trend storytelling',
+            subtitle: 'Compare this window with the previous one so progress feels like a narrative, not just raw numbers.',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    SizedBox(
+                      width: 190,
+                      child: _HeroMetric(
+                        label: 'Consistency delta',
+                        value: '${(rangeDelta * 100).round()} pts',
+                        icon: rangeDelta >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 190,
+                      child: _HeroMetric(
+                        label: 'Previous window',
+                        value: '${(previousRangeRate * 100).round()}%',
+                        icon: Icons.history_rounded,
+                      ),
+                    ),
+                    if (shownHabits.any((h) => h.isQuit))
+                      SizedBox(
+                        width: 190,
+                        child: _HeroMetric(
+                          label: 'Slip delta',
+                          value: '${totalSlips - previousTotalSlips}',
+                          icon: totalSlips <= previousTotalSlips ? Icons.shield_outlined : Icons.flag_outlined,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  rangeDelta >= 0
+                      ? 'This range is stronger than the previous one. Keep leaning into the habits that are already warming up.'
+                      : 'This range softened a bit vs the previous window. The best response is to simplify the weakest days, not to add pressure.',
+                ),
+                const SizedBox(height: 12),
+                if (mostImprovedHabit != null)
+                  _LeaderboardTile(
+                    habit: mostImprovedHabit!,
+                    trailing: _deltaLabel(mostImprovedDelta),
+                    subtitle: 'Most improved habit in this window',
+                  ),
+                if (biggestDipHabit != null)
+                  _LeaderboardTile(
+                    habit: biggestDipHabit!,
+                    trailing: _deltaLabel(biggestDipDelta),
+                    subtitle: 'Needs the easiest recovery plan next',
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -617,14 +806,46 @@ class _StatsScreenState extends State<StatsScreen> {
           if (shownHabits.any((h) => h.isQuit)) ...[
             _InsightCard(
               title: 'Slip analytics',
-              subtitle: 'A clear view of relapse pressure for quit habits in this range.',
+              subtitle: 'A clearer read on relapse pressure for quit habits in this range.',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      SizedBox(
+                        width: 170,
+                        child: _HeroMetric(
+                          label: 'Avg clean run',
+                          value: avgCleanRunAcrossQuit <= 0 ? '—' : '${avgCleanRunAcrossQuit.round()}d',
+                          icon: Icons.shield_moon_outlined,
+                        ),
+                      ),
+                      if (quitMomentumHabit != null)
+                        SizedBox(
+                          width: 210,
+                          child: _HeroMetric(
+                            label: 'Strongest quit momentum',
+                            value: '${_calcStreak(quitMomentumHabit!)}d',
+                            icon: Icons.local_fire_department_outlined,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   Text(
                     topSlipWeekday == null
                         ? 'No slips logged in this range.'
                         : 'Most common slip day: ${_weekdayShort(topSlipWeekday.key)} • ${topSlipWeekday.value} slip${topSlipWeekday.value == 1 ? '' : 's'}',
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    quitHabits.isEmpty
+                        ? 'No quit habits selected.'
+                        : rangeDelta >= 0
+                            ? 'Your quit flow is trending better than the previous window. Protect the same routines that are already working.'
+                            : 'Quit flow is under a bit more pressure than the previous window. Reduce friction on the hardest day and lower the decision load.',
                   ),
                   const SizedBox(height: 12),
                   if (slipLeaders.isEmpty)
@@ -632,10 +853,13 @@ class _StatsScreenState extends State<StatsScreen> {
                   else
                     Column(
                       children: slipLeaders.take(4).map((entry) {
+                        final avgRun = _avgCleanRunBeforeSlip(entry.key);
                         return _LeaderboardTile(
                           habit: entry.key,
                           trailing: '${entry.value}',
-                          subtitle: entry.value == 1 ? '1 slip in this range' : '${entry.value} slips in this range',
+                          subtitle: avgRun <= 0
+                              ? (entry.value == 1 ? '1 slip in this range' : '${entry.value} slips in this range')
+                              : '${entry.value} slips • avg clean run ${avgRun.round()}d',
                         );
                       }).toList(),
                     ),

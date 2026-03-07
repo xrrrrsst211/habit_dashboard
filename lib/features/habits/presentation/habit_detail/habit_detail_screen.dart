@@ -141,6 +141,102 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
+
+  List<DateTime> _sortedSlipDates(Habit habit) {
+    final dates = habit.slipDates
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .map(_dateOnly)
+        .toList()
+      ..sort();
+    return dates;
+  }
+
+  int _cleanRunBeforeSlip(Habit habit, DateTime slipDate) {
+    int cleanDays = 0;
+    DateTime cursor = _dateOnly(slipDate).subtract(const Duration(days: 1));
+    while (true) {
+      final key = _keyFromDate(cursor);
+      if (habit.skippedDates.contains(key)) {
+        cursor = cursor.subtract(const Duration(days: 1));
+        continue;
+      }
+      if (habit.completedDates.contains(key)) {
+        cleanDays += 1;
+        cursor = cursor.subtract(const Duration(days: 1));
+        continue;
+      }
+      break;
+    }
+    return cleanDays;
+  }
+
+  List<int> _cleanRunsBeforeSlips(Habit habit) {
+    return _sortedSlipDates(habit).map((date) => _cleanRunBeforeSlip(habit, date)).toList();
+  }
+
+  double _averageCleanRunBeforeSlip(Habit habit) {
+    final runs = _cleanRunsBeforeSlips(habit);
+    if (runs.isEmpty) return 0;
+    return runs.reduce((a, b) => a + b) / runs.length;
+  }
+
+  int _daysSinceLastSlip(Habit habit) {
+    final slips = _sortedSlipDates(habit);
+    if (slips.isEmpty) return -1;
+    final today = _dateOnly(DateTime.now());
+    return today.difference(slips.last).inDays;
+  }
+
+  int _countSlipsInLastDays(Habit habit, int days) {
+    final today = _dateOnly(DateTime.now());
+    int count = 0;
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.slipDates.contains(_keyFromDate(date))) count++;
+    }
+    return count;
+  }
+
+  Map<int, int> _slipWeekdayCounts(Habit habit, int days) {
+    final today = _dateOnly(DateTime.now());
+    final result = <int, int>{};
+    for (int i = 0; i < days; i++) {
+      final date = today.subtract(Duration(days: i));
+      if (habit.slipDates.contains(_keyFromDate(date))) {
+        result[date.weekday] = (result[date.weekday] ?? 0) + 1;
+      }
+    }
+    return result;
+  }
+
+  String _quitIntelligenceSummary(Habit habit) {
+    final slips7 = _countSlipsInLastDays(habit, 7);
+    final weekdayCounts = _slipWeekdayCounts(habit, 90);
+    final topSlipDay = weekdayCounts.isEmpty
+        ? null
+        : weekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final avgRun = _averageCleanRunBeforeSlip(habit);
+    final daysSinceLast = _daysSinceLastSlip(habit);
+
+    if (habit.slipDates.isEmpty) {
+      return 'No slips logged yet. Keep protecting the clean streak and use reminders before your usual temptation window.';
+    }
+    if (slips7 > 0) {
+      return topSlipDay == null
+          ? 'There was recent relapse pressure this week. Strip today down to the easiest possible clean win.'
+          : 'Recent pressure is up. ${_weekdayNameShort(topSlipDay.key)} tends to be harder, so make that day lighter and more structured.';
+    }
+    if (avgRun >= 7) {
+      return daysSinceLast <= 3
+          ? 'You usually string together about ${avgRun.round()} clean days before a slip. The next few days matter most right now.'
+          : 'You can already hold roughly ${avgRun.round()} clean days per run. The next level is protecting the handoff into week two.';
+    }
+    return topSlipDay == null
+        ? 'Your quit habit looks fragile early. Shorten the gap between reminders, friction, and your backup plan.'
+        : '${_weekdayNameShort(topSlipDay.key)} is the highest-risk day lately. Plan one concrete substitute behavior for that day.';
+  }
+
   Future<void> _handleSlipAction(Habit habit, DateTime date) async {
     final key = _keyFromDate(date);
     final slipped = habit.slipDates.contains(key);
@@ -288,6 +384,12 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     final todayKey = _keyFromDate(today);
     final slippedToday = habit.slipDates.contains(todayKey);
     final recentSlips = _recentSlipDates(habit);
+    final avgRun = _averageCleanRunBeforeSlip(habit);
+    final daysSinceLast = _daysSinceLastSlip(habit);
+    final weekdayCounts = _slipWeekdayCounts(habit, 90);
+    final topSlipDay = weekdayCounts.isEmpty
+        ? null
+        : weekdayCounts.entries.reduce((a, b) => a.value >= b.value ? a : b);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -339,6 +441,37 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               Chip(label: Text('Last 30 days: $slips30 slip${slips30 == 1 ? '' : 's'}')),
             ],
           ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: cs.surface.withOpacity(0.72),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: cs.outline.withOpacity(0.12)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Quit-habit intelligence', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _detailMiniStat('Avg clean run', avgRun <= 0 ? '—' : '${avgRun.round()}d'),
+                    _detailMiniStat('Days since slip', daysSinceLast < 0 ? 'Clean' : '${daysSinceLast}d'),
+                    _detailMiniStat('Hardest day', topSlipDay == null ? '—' : _weekdayNameShort(topSlipDay.key)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _quitIntelligenceSummary(habit),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.82), height: 1.35),
+                ),
+              ],
+            ),
+          ),
           if (recentSlips.isNotEmpty) ...[
             const SizedBox(height: 14),
             Text('Recent slips', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
@@ -358,6 +491,26 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
               }).toList(),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _detailMiniStat(String label, String value) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minWidth: 110),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surfaceVariant.withOpacity(0.45),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.68))),
         ],
       ),
     );
@@ -852,6 +1005,10 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
             const SizedBox(height: 12),
           ],
 
+          _slipCard(current),
+          if (current.isQuit) const SizedBox(height: 12),
+          _notesCard(current),
+          if (current.notes.trim().isNotEmpty) const SizedBox(height: 12),
           _smartReminderCard(current),
 
           const SizedBox(height: 12),
