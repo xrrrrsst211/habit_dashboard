@@ -765,6 +765,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
+  Widget _fadeSlideSwitcher({required Object switchKey, required Widget child}) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      ),
+      child: KeyedSubtree(
+        key: ValueKey<Object>(switchKey),
+        child: child,
+      ),
+    );
+  }
+
   Widget _quickActionsRow() {
     Widget action({
       required IconData icon,
@@ -1662,7 +1685,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return FutureBuilder<void>(
       future: _initFuture,
       builder: (context, snap) {
@@ -1714,8 +1736,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   value: _HomeMenuAction.toggleTheme,
                   child: Text(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
                 ),
-
-                // ✅ Added
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: _HomeMenuAction.exportBackup,
@@ -1773,11 +1793,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 10),
                     _quickActionsRow(),
                     const SizedBox(height: 10),
-                    _weeklyReviewCard(activeHabits, todayKey),
+                    _fadeSlideSwitcher(
+                      switchKey: 'weekly_review_${activeHabits.length}_$completed',
+                      child: _weeklyReviewCard(activeHabits, todayKey),
+                    ),
                     const SizedBox(height: 10),
-                    _smartCoachCard(
-                      activeHabits: activeHabits,
-                      todayKey: todayKey,
+                    _fadeSlideSwitcher(
+                      switchKey: 'smart_focus_${activeHabits.length}_${completed}_${_query}_${_sort}',
+                      child: _smartCoachCard(
+                        activeHabits: activeHabits,
+                        todayKey: todayKey,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     _searchBar(),
@@ -1787,172 +1813,184 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: DailyProgressCard(completed: completed, total: activeHabits.length),
+                      child: _fadeSlideSwitcher(
+                        switchKey: 'daily_progress_${completed}_${activeHabits.length}',
+                        child: DailyProgressCard(completed: completed, total: activeHabits.length),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: WeeklyCheckInCard(
-                        dayRatios: _weekDayRatios(activeHabits),
-                        checkInDays: _weekCheckInDays(activeHabits),
+                      child: _fadeSlideSwitcher(
+                        switchKey: 'weekly_check_${_weekCheckInDays(activeHabits)}_${activeHabits.length}_$completed',
+                        child: WeeklyCheckInCard(
+                          dayRatios: _weekDayRatios(activeHabits),
+                          checkInDays: _weekCheckInDays(activeHabits),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
                     Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
-                        children: [
-                          _buildStaticSectionHeader(
-                            context: context,
-                            title: 'Active habits',
-                            subtitle: '${visible.length} shown • ${activeHabits.length} total',
-                          ),
-                          const SizedBox(height: 12),
-                          if (visible.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: Center(
-                                child: Text(
-                                  _query.isEmpty ? 'Nothing here 👀' : 'No matches for “$_query”',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
-                                      ?.copyWith(color: context.secondaryTextStyle.color),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            )
-                          else if (_sort == _HabitSort.manual)
-                            ReorderableListView.builder(
-                              key: const ValueKey('active_manual_reorderable'),
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: visible.length,
-                              onReorder: (oldIndex, newIndex) async {
-                                await _repo.reorderByIds(oldIndex, newIndex, visibleIds);
-                                HapticFeedback.mediumImpact();
-                                if (!mounted) return;
-                                setState(() {});
-                              },
-                              itemBuilder: (context, index) {
-                                final h = visible[index];
-                                return Container(
-                                  key: ValueKey('habit_${h.id}'),
-                                  margin: const EdgeInsets.only(bottom: 10),
-                                  child: Row(
-                                    children: [
-                                      ReorderableDragStartListener(
-                                        index: index,
-                                        child: const Padding(
-                                          padding: EdgeInsets.only(right: 8),
-                                          child: Icon(Icons.drag_handle),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: HabitTile(
-                                          habit: h,
-                                          onToggle: () => _toggle(h),
-                                          onToggleSkipToday: () => _toggleSkipToday(h),
-                                          onOpenDetails: () => _openDetails(h),
-                                          onEdit: () => _openEditHabit(h),
-                                          onDelete: () => _confirmAndRemoveWithUndo(h),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            )
-                          else ...visible.map((h) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: HabitTile(
-                                  key: ValueKey('sorted_habit_${h.id}'),
-                                  habit: h,
-                                  onToggle: () => _toggle(h),
-                                  onToggleSkipToday: () => _toggleSkipToday(h),
-                                  onOpenDetails: () => _openDetails(h),
-                                  onEdit: () => _openEditHabit(h),
-                                  onDelete: () => _confirmAndRemoveWithUndo(h),
-                                ),
-                              )),
-                          if (archivedHabits.isNotEmpty || _showArchived) ...[
-                            const SizedBox(height: 8),
-                            _buildSectionHeader(
+                      child: _fadeSlideSwitcher(
+                        switchKey: 'list_${visible.map((h) => h.id).join('_')}_${archivedVisible.map((h) => h.id).join('_')}_${_sort.name}_${_filter.name}_${_query}_${_expandArchivedSection}',
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
+                          children: [
+                            _buildStaticSectionHeader(
                               context: context,
-                              title: 'Archived habits',
-                              subtitle: archivedHabits.isEmpty
-                                  ? 'No archived habits yet'
-                                  : '${archivedVisible.length} shown • ${archivedHabits.length} archived',
-                              expanded: _expandArchivedSection,
-                              onExpanded: (value) => setState(() {
-                                _showArchived = true;
-                                _expandArchivedSection = value;
-                              }),
+                              title: 'Active habits',
+                              subtitle: '${visible.length} shown • ${activeHabits.length} total',
                             ),
-                            AnimatedCrossFade(
-                              firstChild: const SizedBox.shrink(),
-                              secondChild: Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: archivedVisible.isEmpty
-                                    ? Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
-                                        child: Center(
-                                          child: Text(
-                                            _query.isEmpty
-                                                ? 'Archived habits will appear here.'
-                                                : 'No archived matches for “$_query”',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodyMedium
-                                                ?.copyWith(color: context.secondaryTextStyle.color),
-                                            textAlign: TextAlign.center,
+                            const SizedBox(height: 12),
+                            if (visible.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: Text(
+                                    _query.isEmpty ? 'Nothing here 👀' : 'No matches for “$_query”',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(color: context.secondaryTextStyle.color),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              )
+                            else if (_sort == _HabitSort.manual)
+                              ReorderableListView.builder(
+                                key: const ValueKey('active_manual_reorderable'),
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: visible.length,
+                                onReorder: (oldIndex, newIndex) async {
+                                  await _repo.reorderByIds(oldIndex, newIndex, visibleIds);
+                                  HapticFeedback.mediumImpact();
+                                  if (!mounted) return;
+                                  setState(() {});
+                                },
+                                itemBuilder: (context, index) {
+                                  final h = visible[index];
+                                  return Container(
+                                    key: ValueKey('habit_${h.id}'),
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    child: Row(
+                                      children: [
+                                        ReorderableDragStartListener(
+                                          index: index,
+                                          child: const Padding(
+                                            padding: EdgeInsets.only(right: 8),
+                                            child: Icon(Icons.drag_handle),
                                           ),
                                         ),
-                                      )
-                                    : (_sort == _HabitSort.manual
-                                        ? ReorderableListView.builder(
-                                            key: const ValueKey('archived_manual_reorderable'),
-                                            shrinkWrap: true,
-                                            physics: const NeverScrollableScrollPhysics(),
-                                            itemCount: archivedVisible.length,
-                                            onReorder: (oldIndex, newIndex) async {
-                                              await _repo.reorderByIds(oldIndex, newIndex, archivedVisibleIds);
-                                              HapticFeedback.mediumImpact();
-                                              if (!mounted) return;
-                                              setState(() {});
-                                            },
-                                            itemBuilder: (context, index) {
-                                              final h = archivedVisible[index];
-                                              return Container(
-                                                key: ValueKey('archived_habit_${h.id}'),
-                                                margin: const EdgeInsets.only(bottom: 10),
-                                                child: Row(
-                                                  children: [
-                                                    ReorderableDragStartListener(
-                                                      index: index,
-                                                      child: const Padding(
-                                                        padding: EdgeInsets.only(right: 8),
-                                                        child: Icon(Icons.drag_handle),
+                                        Expanded(
+                                          child: HabitTile(
+                                            habit: h,
+                                            onToggle: () => _toggle(h),
+                                            onToggleSkipToday: () => _toggleSkipToday(h),
+                                            onOpenDetails: () => _openDetails(h),
+                                            onEdit: () => _openEditHabit(h),
+                                            onDelete: () => _confirmAndRemoveWithUndo(h),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                            else
+                              ...visible.map(
+                                (h) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: HabitTile(
+                                    key: ValueKey('sorted_habit_${h.id}'),
+                                    habit: h,
+                                    onToggle: () => _toggle(h),
+                                    onToggleSkipToday: () => _toggleSkipToday(h),
+                                    onOpenDetails: () => _openDetails(h),
+                                    onEdit: () => _openEditHabit(h),
+                                    onDelete: () => _confirmAndRemoveWithUndo(h),
+                                  ),
+                                ),
+                              ),
+                            if (archivedHabits.isNotEmpty || _showArchived) ...[
+                              const SizedBox(height: 8),
+                              _buildSectionHeader(
+                                context: context,
+                                title: 'Archived habits',
+                                subtitle: archivedHabits.isEmpty
+                                    ? 'No archived habits yet'
+                                    : '${archivedVisible.length} shown • ${archivedHabits.length} archived',
+                                expanded: _expandArchivedSection,
+                                onExpanded: (value) => setState(() {
+                                  _showArchived = true;
+                                  _expandArchivedSection = value;
+                                }),
+                              ),
+                              AnimatedCrossFade(
+                                firstChild: const SizedBox.shrink(),
+                                secondChild: Padding(
+                                  padding: const EdgeInsets.only(top: 12),
+                                  child: archivedVisible.isEmpty
+                                      ? Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          child: Center(
+                                            child: Text(
+                                              _query.isEmpty
+                                                  ? 'Archived habits will appear here.'
+                                                  : 'No archived matches for “$_query”',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(color: context.secondaryTextStyle.color),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        )
+                                      : (_sort == _HabitSort.manual
+                                          ? ReorderableListView.builder(
+                                              key: const ValueKey('archived_manual_reorderable'),
+                                              shrinkWrap: true,
+                                              physics: const NeverScrollableScrollPhysics(),
+                                              itemCount: archivedVisible.length,
+                                              onReorder: (oldIndex, newIndex) async {
+                                                await _repo.reorderByIds(oldIndex, newIndex, archivedVisibleIds);
+                                                HapticFeedback.mediumImpact();
+                                                if (!mounted) return;
+                                                setState(() {});
+                                              },
+                                              itemBuilder: (context, index) {
+                                                final h = archivedVisible[index];
+                                                return Container(
+                                                  key: ValueKey('archived_habit_${h.id}'),
+                                                  margin: const EdgeInsets.only(bottom: 10),
+                                                  child: Row(
+                                                    children: [
+                                                      ReorderableDragStartListener(
+                                                        index: index,
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.only(right: 8),
+                                                          child: Icon(Icons.drag_handle),
+                                                        ),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      child: HabitTile(
-                                                        habit: h,
-                                                        onToggle: () => _toggle(h),
-                                                        onToggleSkipToday: () => _toggleSkipToday(h),
-                                                        onOpenDetails: () => _openDetails(h),
-                                                        onEdit: () => _openEditHabit(h),
-                                                        onDelete: () => _confirmAndRemoveWithUndo(h),
+                                                      Expanded(
+                                                        child: HabitTile(
+                                                          habit: h,
+                                                          onToggle: () => _toggle(h),
+                                                          onToggleSkipToday: () => _toggleSkipToday(h),
+                                                          onOpenDetails: () => _openDetails(h),
+                                                          onEdit: () => _openEditHabit(h),
+                                                          onDelete: () => _confirmAndRemoveWithUndo(h),
+                                                        ),
                                                       ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          )
-                                        : Column(
-                                            children: archivedVisible
-                                                .map((h) => Padding(
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            )
+                                          : Column(
+                                              children: archivedVisible
+                                                  .map(
+                                                    (h) => Padding(
                                                       padding: const EdgeInsets.only(bottom: 10),
                                                       child: HabitTile(
                                                         key: ValueKey('sorted_archived_${h.id}'),
@@ -1963,17 +2001,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         onEdit: () => _openEditHabit(h),
                                                         onDelete: () => _confirmAndRemoveWithUndo(h),
                                                       ),
-                                                    ))
-                                                .toList(),
-                                          )),
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            )),
+                                ),
+                                crossFadeState: _expandArchivedSection
+                                    ? CrossFadeState.showSecond
+                                    : CrossFadeState.showFirst,
+                                duration: const Duration(milliseconds: 220),
                               ),
-                              crossFadeState: _expandArchivedSection
-                                  ? CrossFadeState.showSecond
-                                  : CrossFadeState.showFirst,
-                              duration: const Duration(milliseconds: 220),
-                            ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -1982,4 +2022,5 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
 }

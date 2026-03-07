@@ -11,6 +11,15 @@ ThemeData buildAppTheme() {
   );
 
   return base.copyWith(
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+      },
+    ),
     extensions: <ThemeExtension<dynamic>>[
       AppStyles(
         secondaryText: (base.textTheme.bodyMedium ?? const TextStyle())
@@ -42,6 +51,15 @@ ThemeData buildDarkAppTheme() {
   );
 
   return base.copyWith(
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: <TargetPlatform, PageTransitionsBuilder>{
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+      },
+    ),
     extensions: <ThemeExtension<dynamic>>[
       AppStyles(
         secondaryText: (base.textTheme.bodyMedium ?? const TextStyle())

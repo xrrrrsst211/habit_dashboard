@@ -67,202 +67,251 @@ class HabitTile extends StatelessWidget {
             ? cs.onSurface.withOpacity(0.75)
             : cs.onSurface.withOpacity(0.75));
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            accent.withOpacity(0.08),
-            cs.surface,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.985, end: 1.0),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+      builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              accent.withOpacity(doneToday ? 0.12 : 0.08),
+              cs.surface,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: doneToday
+                ? accent.withOpacity(0.28)
+                : cs.outline.withOpacity(0.10),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: doneToday
+                  ? accent.withOpacity(0.06)
+                  : Colors.black.withOpacity(0.03),
+              blurRadius: doneToday ? 22 : 18,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: doneToday
-              ? accent.withOpacity(0.24)
-              : cs.outline.withOpacity(0.10),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onToggle();
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ToggleDot(
-                  doneToday: doneToday,
-                  skippedToday: skippedToday,
-                  accent: accent,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            decoration: BoxDecoration(
-                              color: accent.withOpacity(0.14),
-                              borderRadius: BorderRadius.circular(14),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onToggle();
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ToggleDot(
+                    doneToday: doneToday,
+                    skippedToday: skippedToday,
+                    accent: accent,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.96, end: 1.0),
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOutBack,
+                              builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+                              child: Container(
+                                width: 42,
+                                height: 42,
+                                decoration: BoxDecoration(
+                                  color: accent.withOpacity(0.14),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Icon(habit.iconData, color: accent, size: 20),
+                              ),
                             ),
-                            child: Icon(habit.iconData, color: accent, size: 20),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  habit.title,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 220),
+                                    transitionBuilder: (child, animation) => FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: Tween<Offset>(
+                                          begin: const Offset(0, 0.10),
+                                          end: Offset.zero,
+                                        ).animate(animation),
+                                        child: child,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      habit.title,
+                                      key: ValueKey<String>('title_${habit.id}_${doneToday}_${skippedToday}'),
+                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                            decoration: doneToday && habit.isBuild
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: [
+                                      _chip(context, habit.typeLabel, icon: habit.isQuit ? Icons.shield_outlined : Icons.auto_awesome_outlined),
+                                      _chip(context, Habit.iconLabelFor(habit.iconKey), icon: habit.iconData),
+                                      if (habit.reminderMinutes != null)
+                                        _chip(context, _formatMinutes(habit.reminderMinutes!), icon: Icons.notifications_active_outlined),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                transitionBuilder: (child, animation) => FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(scale: animation, child: child),
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  key: ValueKey<String>('status_$statusLabel'),
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                         fontWeight: FontWeight.w800,
-                                        decoration: doneToday && habit.isBuild
-                                            ? TextDecoration.lineThrough
-                                            : null,
+                                        letterSpacing: 0.7,
+                                        color: statusFg,
                                       ),
                                 ),
-                                const SizedBox(height: 4),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    _chip(context, habit.typeLabel, icon: habit.isQuit ? Icons.shield_outlined : Icons.auto_awesome_outlined),
-                                    _chip(context, Habit.iconLabelFor(habit.iconKey), icon: habit.iconData),
-                                    if (habit.reminderMinutes != null)
-                                      _chip(context, _formatMinutes(habit.reminderMinutes!), icon: Icons.notifications_active_outlined),
-                                  ],
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: statusBg,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              statusLabel,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 0.7,
-                                    color: statusFg,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _WeekDotsByDates(
-                        last7Keys: last7,
-                        completedDates: habit.completedDates,
-                        skippedDates: habit.skippedDates,
-                        activeColor: accent,
-                        todayBorderColor: accent,
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 8,
-                        children: [
-                          _metaText(context, streak > 0 ? '🔥 $streak ${habit.streakLabel}' : 'No streak yet'),
-                          if (hasGoal) _metaText(context, '$goalDone/${habit.targetDays} target'),
-                          if (hasWeeklyGoal) _metaText(context, '$thisWeekDone/${habit.weeklyTarget} this week'),
-                          if (goalReached || weeklyReached) _metaText(context, '🎉 goal reached', color: accent),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        doneToday
-                            ? habit.completionActionLabel
-                            : (habit.isQuit ? 'Tap to mark today as clean' : 'Tap to mark done'),
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: secondaryColor),
-                      ),
-                      if (hasWeeklyGoal || hasGoal) ...[
+                          ],
+                        ),
                         const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(999),
-                          child: LinearProgressIndicator(
-                            value: hasWeeklyGoal ? weeklyProgress : goalProgress,
-                            minHeight: 8,
-                            valueColor: AlwaysStoppedAnimation<Color>(accent),
-                            backgroundColor: accent.withOpacity(0.10),
+                        _WeekDotsByDates(
+                          last7Keys: last7,
+                          completedDates: habit.completedDates,
+                          skippedDates: habit.skippedDates,
+                          activeColor: accent,
+                          todayBorderColor: accent,
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          children: [
+                            _metaText(context, streak > 0 ? '🔥 $streak ${habit.streakLabel}' : 'No streak yet'),
+                            if (hasGoal) _metaText(context, '$goalDone/${habit.targetDays} target'),
+                            if (hasWeeklyGoal) _metaText(context, '$thisWeekDone/${habit.weeklyTarget} this week'),
+                            if (goalReached || weeklyReached) _metaText(context, '🎉 goal reached', color: accent),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
+                          child: Text(
+                            doneToday
+                                ? habit.completionActionLabel
+                                : (habit.isQuit ? 'Tap to mark today as clean' : 'Tap to mark done'),
+                            key: ValueKey<String>('hint_${habit.id}_$doneToday'),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: secondaryColor),
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _actionButton(
-                            context,
-                            label: 'Details',
-                            icon: Icons.insights_outlined,
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              onOpenDetails();
-                            },
-                          ),
-                          _actionButton(
-                            context,
-                            label: 'Edit',
-                            icon: Icons.edit_outlined,
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              onEdit();
-                            },
-                          ),
-                          if (onToggleSkipToday != null)
-                            _actionButton(
-                              context,
-                              label: skippedToday ? 'Unskip' : 'Skip today',
-                              icon: skippedToday ? Icons.undo_rounded : Icons.hotel_rounded,
-                              onPressed: () {
-                                HapticFeedback.selectionClick();
-                                onToggleSkipToday!.call();
-                              },
+                        if (hasWeeklyGoal || hasGoal) ...[
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: hasWeeklyGoal ? weeklyProgress : goalProgress),
+                              duration: const Duration(milliseconds: 320),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, _) => LinearProgressIndicator(
+                                value: value,
+                                minHeight: 8,
+                                valueColor: AlwaysStoppedAnimation<Color>(accent),
+                                backgroundColor: accent.withOpacity(0.10),
+                              ),
                             ),
-                          _actionButton(
-                            context,
-                            label: 'Delete',
-                            icon: Icons.delete_outline,
-                            onPressed: () {
-                              HapticFeedback.selectionClick();
-                              onDelete();
-                            },
-                            destructive: true,
                           ),
                         ],
-                      ),
-                    ],
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _actionButton(
+                              context,
+                              label: 'Details',
+                              icon: Icons.insights_outlined,
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                onOpenDetails();
+                              },
+                            ),
+                            _actionButton(
+                              context,
+                              label: 'Edit',
+                              icon: Icons.edit_outlined,
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                onEdit();
+                              },
+                            ),
+                            if (onToggleSkipToday != null)
+                              _actionButton(
+                                context,
+                                label: skippedToday ? 'Unskip' : 'Skip today',
+                                icon: skippedToday ? Icons.undo_rounded : Icons.hotel_rounded,
+                                onPressed: () {
+                                  HapticFeedback.selectionClick();
+                                  onToggleSkipToday!.call();
+                                },
+                              ),
+                            _actionButton(
+                              context,
+                              label: 'Delete',
+                              icon: Icons.delete_outline,
+                              onPressed: () {
+                                HapticFeedback.selectionClick();
+                                onDelete();
+                              },
+                              destructive: true,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -272,7 +321,8 @@ class HabitTile extends StatelessWidget {
 
   Widget _chip(BuildContext context, String label, {required IconData icon}) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: cs.surface.withOpacity(0.82),
@@ -296,12 +346,16 @@ class HabitTile extends StatelessWidget {
   }
 
   Widget _metaText(BuildContext context, String text, {Color? color}) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: color ?? context.secondaryTextStyle.color,
-            fontWeight: FontWeight.w600,
-          ),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      child: Text(
+        text,
+        key: ValueKey<String>(text),
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color ?? context.secondaryTextStyle.color,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
     );
   }
 
@@ -380,7 +434,9 @@ class _ToggleDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
       width: 34,
       height: 34,
       decoration: BoxDecoration(
@@ -398,15 +454,32 @@ class _ToggleDot extends StatelessWidget {
                   : cs.outline.withOpacity(0.28),
           width: 1.4,
         ),
+        boxShadow: doneToday
+            ? [
+                BoxShadow(
+                  color: accent.withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
       ),
-      child: Icon(
-        doneToday
-            ? Icons.check_rounded
-            : skippedToday
-                ? Icons.remove_rounded
-                : Icons.circle_outlined,
-        size: 18,
-        color: doneToday ? accent : cs.onSurface.withOpacity(0.72),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        transitionBuilder: (child, animation) => ScaleTransition(
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+        child: Icon(
+          doneToday
+              ? Icons.check_rounded
+              : skippedToday
+                  ? Icons.remove_rounded
+                  : Icons.circle_outlined,
+          key: ValueKey<String>('dot_$doneToday$skippedToday'),
+          size: 18,
+          color: doneToday ? accent : cs.onSurface.withOpacity(0.72),
+        ),
       ),
     );
   }
@@ -443,25 +516,37 @@ class _WeekDotsByDates extends StatelessWidget {
 
         return Padding(
           padding: EdgeInsets.only(right: index == 6 ? 0 : gap),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            width: dotSize,
-            height: dotSize,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isFilled
-                  ? activeColor
-                  : (isSkipped
-                      ? cs.onSurface.withOpacity(0.06)
-                      : cs.onSurface.withOpacity(0.12)),
-              border: isToday
-                  ? Border.all(color: todayBorderColor, width: 1.6)
-                  : (isSkipped
-                      ? Border.all(
-                          color: cs.onSurface.withOpacity(0.35),
-                          width: 1.2,
-                        )
-                      : null),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: Duration(milliseconds: 180 + (index * 20)),
+            curve: Curves.easeOutCubic,
+            builder: (context, t, child) => Opacity(
+              opacity: t,
+              child: Transform.translate(
+                offset: Offset(0, (1 - t) * 6),
+                child: child,
+              ),
+            ),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: dotSize,
+              height: dotSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isFilled
+                    ? activeColor
+                    : (isSkipped
+                        ? cs.onSurface.withOpacity(0.06)
+                        : cs.onSurface.withOpacity(0.12)),
+                border: isToday
+                    ? Border.all(color: todayBorderColor, width: 1.6)
+                    : (isSkipped
+                        ? Border.all(
+                            color: cs.onSurface.withOpacity(0.35),
+                            width: 1.2,
+                          )
+                        : null),
+              ),
             ),
           ),
         );
@@ -469,4 +554,3 @@ class _WeekDotsByDates extends StatelessWidget {
     );
   }
 }
-
