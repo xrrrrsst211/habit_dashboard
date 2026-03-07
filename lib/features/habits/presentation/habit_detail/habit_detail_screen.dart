@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
@@ -23,28 +24,13 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
   late DateTime _month;
 
   void _showCalendarHelp() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Calendar help'),
-          content: Text(
-            widget.habit.isQuit
-                ? '• Tap a day to mark it as clean\n'
-                    '• Long-press a day to toggle rest day (skip)\n\n'
-                    'Skipped days don\'t add to your streak, but they also don\'t break it.'
-                : '• Tap a day to toggle done\n'
-                    '• Long-press a day to toggle rest day (skip)\n\n'
-                    'Skipped days don\'t add to your streak, but they also don\'t break it.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Got it'),
-            ),
-          ],
-        );
-      },
+    showAppInfoDialog(
+      context,
+      title: 'Calendar help',
+      icon: Icons.calendar_month_rounded,
+      message: widget.habit.isQuit
+          ? '• Tap a day to mark it as clean\n• Long-press a day to toggle rest day (skip)\n\nSkipped days do not add to your streak, but they also do not break it.'
+          : '• Tap a day to toggle done\n• Long-press a day to toggle rest day (skip)\n\nSkipped days do not add to your streak, but they also do not break it.',
     );
   }
 
@@ -176,11 +162,11 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     if (confirmed != true) return;
     await widget.repo.toggleSlipDate(habit.id, key);
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(slipped ? 'Slip removed for ${_prettyDate(date)}' : 'Slip logged for ${_prettyDate(date)}')),
-      );
+    showAppSnackBar(
+      context,
+      slipped ? 'Slip removed for ${_prettyDate(date)}' : 'Slip logged for ${_prettyDate(date)}',
+      icon: slipped ? Icons.undo_rounded : Icons.report_gmailerrorred_rounded,
+    );
     setState(() {});
   }
 

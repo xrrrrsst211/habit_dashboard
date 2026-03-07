@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
@@ -1255,8 +1256,10 @@ class _ProgressCardScreen extends StatelessWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: data.toShareText()));
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Progress summary copied')),
+                showAppSnackBar(
+                  context,
+                  'Progress summary copied',
+                  icon: Icons.copy_rounded,
                 );
               }
             },

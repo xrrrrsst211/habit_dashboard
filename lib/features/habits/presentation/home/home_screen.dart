@@ -9,6 +9,7 @@ import 'package:habit_dashboard/core/constants/app_strings.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/empty_state.dart';
+import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
@@ -449,19 +450,12 @@ class _HomeScreenState extends State<HomeScreen> {
     SnackBarAction? action,
   }) {
     if (!mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: duration,
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        action: action,
-      ),
+    showAppSnackBar(
+      context,
+      message,
+      duration: duration,
+      action: action,
+      icon: Icons.check_circle_outline_rounded,
     );
   }
 
@@ -1151,22 +1145,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _confirmAndRemoveWithUndo(Habit habit) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete habit?'),
-        content: Text('Delete “${habit.title}”?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final ok = await showAppConfirmDialog(
+      context,
+      title: 'Delete habit?',
+      message: 'Delete “${habit.title}”? You can undo it from the snackbar right after.',
+      confirmLabel: 'Delete',
+      destructive: true,
+      icon: Icons.delete_outline_rounded,
     );
 
     if (ok != true) return;
@@ -1253,25 +1238,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Import backup file?'),
-          content: Text(
-            'This will REPLACE your current habits with the selected JSON backup.\n'
-            'Current data will be overwritten.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Import'),
-            ),
-          ],
-        ),
+      final ok = await showAppConfirmDialog(
+        context,
+        title: 'Import backup file?',
+        message: 'This will replace your current habits with the selected JSON backup. A restore point is created first.',
+        confirmLabel: 'Import',
+        icon: Icons.file_download_outlined,
       );
 
       if (ok != true) return;
@@ -1303,25 +1275,12 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Restore backup?'),
-          content: const Text(
-            'This will REPLACE your current habits with the backup data.\n'
-            'You can’t undo this. Continue?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Restore'),
-            ),
-          ],
-        ),
+      final ok = await showAppConfirmDialog(
+        context,
+        title: 'Restore backup?',
+        message: 'This will replace your current habits with the backup data. A restore point is created before restore.',
+        confirmLabel: 'Restore',
+        icon: Icons.restore_rounded,
       );
 
       if (ok != true) return;
