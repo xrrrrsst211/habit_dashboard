@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
@@ -289,9 +290,55 @@ class _StatsScreenState extends State<StatsScreen> {
     final weekDelta = latestWeek == null || previousWeek == null
         ? 0.0
         : latestWeek.rate - previousWeek.rate;
+    final bestHabit = leaderboard.isEmpty ? null : leaderboard.first;
+    final progressCardData = _ProgressCardData(
+      title: selectedHabit?.title ?? 'My progress snapshot',
+      subtitle: selectedHabit == null
+          ? 'A clean summary of your current momentum across active habits.'
+          : selectedHabit.isQuit
+              ? 'A shareable clean-streak summary for this quit habit.'
+              : 'A shareable progress summary for this habit.',
+      rangeDays: _selectedDays,
+      completionPercent: (rangeRate * 100).round(),
+      bestStreak: bestStreak,
+      totalHabits: totalHabits,
+      doneToday: doneToday,
+      skippedToday: skippedToday,
+      bestHabitTitle: bestHabit?.title ?? '—',
+      bestHabitSubtitle: bestHabit == null
+          ? 'No momentum leader yet'
+          : '${(_completionRate(bestHabit, _selectedDays) * 100).round()}% consistency • ${_calcStreak(bestHabit)} ${bestHabit.isQuit ? 'clean' : 'day'} streak',
+      buildCount: shownHabits.where((h) => h.isBuild).length,
+      quitCount: shownHabits.where((h) => h.isQuit).length,
+      slipCount: totalSlips,
+      strongestDayLabel: '${_weekdayShort(bestWeekdayEntry.key)} • ${(bestWeekdayEntry.value * 100).round()}%',
+      focusLabel: protectToday.isEmpty ? 'No urgent habits today' : protectToday.first.title,
+      weeklyDeltaPercent: (weekDelta * 100).round(),
+      consistencyLabel: consistency >= 1
+          ? 'Perfect day so far'
+          : consistency >= 0.7
+              ? 'Strong day in motion'
+              : 'Recovery window open today',
+      isQuitFocused: selectedHabit?.isQuit ?? false,
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Stats & insights')),
+      appBar: AppBar(
+        title: const Text('Stats & insights'),
+        actions: [
+          IconButton(
+            tooltip: 'Progress card',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => _ProgressCardScreen(data: progressCardData),
+                ),
+              );
+            },
+            icon: const Icon(Icons.ios_share_rounded),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
@@ -1123,6 +1170,318 @@ class _LeaderboardTile extends StatelessWidget {
             trailing,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _ProgressCardData {
+  final String title;
+  final String subtitle;
+  final int rangeDays;
+  final int completionPercent;
+  final int bestStreak;
+  final int totalHabits;
+  final int doneToday;
+  final int skippedToday;
+  final String bestHabitTitle;
+  final String bestHabitSubtitle;
+  final int buildCount;
+  final int quitCount;
+  final int slipCount;
+  final String strongestDayLabel;
+  final String focusLabel;
+  final int weeklyDeltaPercent;
+  final String consistencyLabel;
+  final bool isQuitFocused;
+
+  const _ProgressCardData({
+    required this.title,
+    required this.subtitle,
+    required this.rangeDays,
+    required this.completionPercent,
+    required this.bestStreak,
+    required this.totalHabits,
+    required this.doneToday,
+    required this.skippedToday,
+    required this.bestHabitTitle,
+    required this.bestHabitSubtitle,
+    required this.buildCount,
+    required this.quitCount,
+    required this.slipCount,
+    required this.strongestDayLabel,
+    required this.focusLabel,
+    required this.weeklyDeltaPercent,
+    required this.consistencyLabel,
+    required this.isQuitFocused,
+  });
+
+  String toShareText() {
+    final buffer = StringBuffer()
+      ..writeln(title)
+      ..writeln('${completionPercent}% consistency over the last $rangeDays days')
+      ..writeln('Best streak: $bestStreak days')
+      ..writeln('Today: $doneToday done, $skippedToday skipped, $totalHabits tracked')
+      ..writeln('Top momentum: $bestHabitTitle — $bestHabitSubtitle')
+      ..writeln('Strongest day: $strongestDayLabel')
+      ..writeln('Focus today: $focusLabel');
+    if (quitCount > 0) {
+      buffer.writeln('Quit habits: $quitCount • slips in range: $slipCount');
+    }
+    if (buildCount > 0) {
+      buffer.writeln('Build habits: $buildCount');
+    }
+    return buffer.toString().trim();
+  }
+}
+
+class _ProgressCardScreen extends StatelessWidget {
+  final _ProgressCardData data;
+
+  const _ProgressCardScreen({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Progress card'),
+        actions: [
+          IconButton(
+            tooltip: 'Copy summary',
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: data.toShareText()));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Progress summary copied')),
+                );
+              }
+            },
+            icon: const Icon(Icons.copy_rounded),
+          ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        children: [
+          Text(
+            'Made to screenshot or show as a clean progress snapshot.',
+            style: tt.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.72)),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  cs.primary.withOpacity(0.16),
+                  cs.secondary.withOpacity(0.10),
+                  cs.surface,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: cs.outline.withOpacity(0.14)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Icon(
+                        data.isQuitFocused ? Icons.health_and_safety_outlined : Icons.auto_awesome_rounded,
+                        color: cs.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            data.title,
+                            style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            data.subtitle,
+                            style: tt.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.72)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: cs.surface.withOpacity(0.78),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: cs.outline.withOpacity(0.10)),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ProgressMetric(label: '${data.rangeDays}-day consistency', value: '${data.completionPercent}%'),
+                      ),
+                      Expanded(
+                        child: _ProgressMetric(label: data.isQuitFocused ? 'Best clean streak' : 'Best streak', value: '${data.bestStreak}d'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _ProgressPill(icon: Icons.today_outlined, label: '${data.doneToday} done today'),
+                    _ProgressPill(icon: Icons.bedtime_outlined, label: '${data.skippedToday} skipped'),
+                    _ProgressPill(icon: Icons.track_changes_rounded, label: '${data.totalHabits} tracked'),
+                    if (data.buildCount > 0) _ProgressPill(icon: Icons.trending_up_rounded, label: '${data.buildCount} build'),
+                    if (data.quitCount > 0) _ProgressPill(icon: Icons.shield_moon_outlined, label: '${data.quitCount} quit'),
+                    if (data.quitCount > 0) _ProgressPill(icon: Icons.flag_circle_outlined, label: '${data.slipCount} slips'),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _ProgressInfoRow(title: 'Top momentum', value: data.bestHabitTitle, subtitle: data.bestHabitSubtitle),
+                const SizedBox(height: 12),
+                _ProgressInfoRow(title: 'Strongest day', value: data.strongestDayLabel),
+                const SizedBox(height: 12),
+                _ProgressInfoRow(title: 'Focus today', value: data.focusLabel),
+                const SizedBox(height: 12),
+                _ProgressInfoRow(
+                  title: 'Weekly movement',
+                  value: data.weeklyDeltaPercent == 0
+                      ? 'Flat vs previous week'
+                      : data.weeklyDeltaPercent > 0
+                          ? '+${data.weeklyDeltaPercent} pts vs last week'
+                          : '${data.weeklyDeltaPercent} pts vs last week',
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    data.consistencyLabel,
+                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Tip: open this screen and take a screenshot, or tap copy to save a clean text summary.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.68)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _ProgressMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Text(label, style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.72))),
+      ],
+    );
+  }
+}
+
+class _ProgressPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _ProgressPill({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.82),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outline.withOpacity(0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: cs.primary),
+          const SizedBox(width: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressInfoRow extends StatelessWidget {
+  final String title;
+  final String value;
+  final String? subtitle;
+
+  const _ProgressInfoRow({required this.title, required this.value, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.72),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outline.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: tt.labelLarge?.copyWith(color: cs.onSurface.withOpacity(0.70))),
+          const SizedBox(height: 6),
+          Text(value, style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(subtitle!, style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.72))),
+          ],
         ],
       ),
     );
