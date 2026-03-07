@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -256,7 +257,7 @@ class _StatsScreenState extends State<StatsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Stats & insights')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
           Container(
             padding: const EdgeInsets.all(20),
@@ -317,7 +318,9 @@ class _StatsScreenState extends State<StatsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+          _SectionLabel(title: 'Controls', subtitle: 'Dial in the time range or focus on one habit.'),
+          const SizedBox(height: 10),
           _InsightCard(
             title: 'Focus controls',
             child: Column(
@@ -414,7 +417,9 @@ class _StatsScreenState extends State<StatsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
+          _SectionLabel(title: 'Patterns', subtitle: 'Where your consistency is strongest and where it softens.'),
+          const SizedBox(height: 10),
           _InsightCard(
             title: '${_selectedDays}-day heatmap',
             subtitle: 'Darker cells mean better completion. Grey cells mean the day was skipped for everything in view.',
@@ -601,6 +606,34 @@ class _WeekStat {
   });
 }
 
+class _SectionLabel extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _SectionLabel({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: cs.onSurface.withOpacity(0.72),
+              ),
+        ),
+      ],
+    );
+  }
+}
+
 class _InsightCard extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -612,11 +645,25 @@ class _InsightCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: colorScheme.outline.withOpacity(0.12)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colorScheme.surface,
+            colorScheme.primary.withOpacity(0.025),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.025),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,7 +677,7 @@ class _InsightCard extends StatelessWidget {
             Text(
               subtitle!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.70),
+                    color: context.secondaryTextStyle.color,
                   ),
             ),
           ],
@@ -657,8 +704,8 @@ class _HeroMetric extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colorScheme.surface.withOpacity(0.84),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outline.withOpacity(0.12)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: colorScheme.outline.withOpacity(0.10)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -781,7 +828,8 @@ class _HeatmapTimeline extends StatelessWidget {
                               margin: const EdgeInsets.only(bottom: 4),
                               decoration: BoxDecoration(
                                 color: cell == null ? Colors.transparent : _cellColor(context, cell),
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(5),
+                                border: Border.all(color: Theme.of(context).colorScheme.surface.withOpacity(0.75)),
                               ),
                             ),
                           );
@@ -867,7 +915,14 @@ class _WeekBar extends StatelessWidget {
                 heightFactor: week.rate.clamp(0.06, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: cs.primary.withOpacity(0.82),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        cs.primary.withOpacity(0.92),
+                        cs.primary.withOpacity(0.58),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
@@ -912,7 +967,14 @@ class _MiniBar extends StatelessWidget {
                 heightFactor: value.clamp(0.04, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: cs.secondary.withOpacity(0.78),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        cs.secondary.withOpacity(0.86),
+                        cs.secondary.withOpacity(0.52),
+                      ],
+                    ),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),

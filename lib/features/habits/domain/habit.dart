@@ -91,6 +91,8 @@ class Habit {
     0xFF7C3AED,
   ];
 
+  static const List<int> colorPalette = colorValues;
+
   const Habit({
     required this.id,
     required this.title,

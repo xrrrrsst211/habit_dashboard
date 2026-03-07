@@ -168,49 +168,75 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: Text(_isEdit ? 'Edit habit' : 'Add habit')),
+      appBar: AppBar(
+        title: Text(_isEdit ? 'Edit habit' : 'Add habit'),
+        actions: [
+          TextButton(
+            onPressed: _submit,
+            child: const Text('Save'),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: accent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: accent.withOpacity(0.18)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[
+                      accent.withOpacity(0.18),
+                      accent.withOpacity(0.08),
+                      cs.surface,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: accent.withOpacity(0.20)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 52,
-                      height: 52,
+                      width: 58,
+                      height: 58,
                       decoration: BoxDecoration(
                         color: accent,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accent.withOpacity(0.24),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
                       ),
                       child: Icon(Habit.iconDataFor(_iconKey), color: Colors.white),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             previewHabit.title,
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
                                 ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${previewHabit.typeLabel} • ${Habit.iconLabelFor(_iconKey)}',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurface.withOpacity(0.7),
-                                ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _pill(context, previewHabit.typeLabel),
+                              _pill(context, Habit.iconLabelFor(_iconKey)),
+                              if (reminderOn) _pill(context, _formatMinutes(_reminderMinutes!)),
+                            ],
                           ),
                         ],
                       ),
@@ -218,244 +244,332 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _controller,
-                autofocus: true,
-                textInputAction: TextInputAction.done,
-                onChanged: (_) => setState(() {}),
-                onSubmitted: (_) => _submit(),
-                decoration: InputDecoration(
-                  labelText: _type == Habit.typeQuit ? 'What do you want to quit?' : 'Habit name',
-                  hintText: _type == Habit.typeQuit ? 'e.g. No smoking' : 'e.g. Study 30 min',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _notesController,
-                minLines: 2,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  labelText: _type == Habit.typeQuit ? 'Reason / motivation' : 'Note / why this matters',
-                  hintText: _type == Habit.typeQuit
-                      ? 'e.g. Better breathing, save money, feel cleaner'
-                      : 'e.g. Helps me focus, energy, mood, consistency',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _type == Habit.typeQuit
-                    ? 'Add a short reason to remember why you want to stay clean.'
-                    : 'Optional note for your goal, motivation, or a simple reminder.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: cs.onSurface.withOpacity(0.72),
-                    ),
-              ),
               const SizedBox(height: 18),
-              Text('Habit type', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Build'),
-                    avatar: const Icon(Icons.trending_up_rounded, size: 18),
-                    selected: _type == Habit.typeBuild,
-                    onSelected: (_) => setState(() => _type = Habit.typeBuild),
-                  ),
-                  ChoiceChip(
-                    label: const Text('Quit'),
-                    avatar: const Icon(Icons.block_rounded, size: 18),
-                    selected: _type == Habit.typeQuit,
-                    onSelected: (_) => setState(() => _type = Habit.typeQuit),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _type == Habit.typeQuit
-                    ? 'Use quit habits for things like smoking, alcohol, vaping, sugar, or junk food.'
-                    : 'Use build habits for actions you want to practice consistently.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: cs.onSurface.withOpacity(0.72),
-                    ),
-              ),
-              const SizedBox(height: 18),
-              Text('Icon', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: Habit.iconKeys.map((key) {
-                  final selected = _iconKey == key;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () => setState(() => _iconKey = key),
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: selected ? accent.withOpacity(0.16) : cs.surface,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: selected ? accent : cs.outline.withOpacity(0.24),
-                          width: selected ? 1.8 : 1,
-                        ),
-                      ),
-                      child: Icon(Habit.iconDataFor(key), color: selected ? accent : cs.onSurface),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 18),
-              Text('Color', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: Habit.colorValues.map((value) {
-                  final selected = _colorValue == value;
-                  final color = Color(value);
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () => setState(() => _colorValue = value),
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: color,
-                        border: Border.all(
-                          color: selected ? cs.onSurface : Colors.transparent,
-                          width: 2,
-                        ),
-                        boxShadow: selected
-                            ? [
-                                BoxShadow(
-                                  color: color.withOpacity(0.28),
-                                  blurRadius: 10,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: selected
-                          ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
-                          : null,
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 18),
-              Text('Goal style', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                value: _weeklyTarget,
-                items: _weeklyOptions
-                    .map((n) => DropdownMenuItem<int>(
-                          value: n,
-                          child: Text('Weekly goal: ${_weeklyLabelFor(n)}'),
-                        ))
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _weeklyTarget = v;
-                    if (_weeklyTarget > 0) _targetDays = 0;
-                  });
-                },
-              ),
-              const SizedBox(height: 10),
-              DropdownButtonFormField<int>(
-                value: _targetDays,
-                items: _options
-                    .map((d) => DropdownMenuItem<int>(
-                          value: d,
-                          child: Text('Duration goal: ${_labelFor(d)}'),
-                        ))
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _targetDays = v;
-                    if (_targetDays > 0) _weeklyTarget = 0;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('Reminder', style: Theme.of(context).textTheme.titleMedium),
-                  ),
-                  Switch(
-                    value: reminderOn,
-                    onChanged: (v) => setState(() => _reminderMinutes = v ? (20 * 60) : null),
-                  ),
-                ],
-              ),
-              if (reminderOn) ...[
-                const SizedBox(height: 8),
-                Row(
+              _sectionCard(
+                context,
+                title: 'Basics',
+                subtitle: 'Name your habit and add a short note or motivation.',
+                child: Column(
                   children: [
-                    Expanded(child: Text('Time: ${_formatMinutes(_reminderMinutes!)}')),
-                    OutlinedButton(onPressed: _pickTime, child: const Text('Change')),
+                    TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      textInputAction: TextInputAction.done,
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => _submit(),
+                      decoration: InputDecoration(
+                        labelText: _type == Habit.typeQuit ? 'What do you want to quit?' : 'Habit name',
+                        hintText: _type == Habit.typeQuit ? 'e.g. No smoking' : 'e.g. Study 30 min',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _notesController,
+                      minLines: 2,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.newline,
+                      decoration: InputDecoration(
+                        labelText: _type == Habit.typeQuit ? 'Reason / motivation' : 'Note / why this matters',
+                        hintText: _type == Habit.typeQuit
+                            ? 'e.g. Better breathing, save money, feel cleaner'
+                            : 'e.g. Helps me focus, energy, mood, consistency',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _type == Habit.typeQuit
+                            ? 'Add a short reason to remember why you want to stay clean.'
+                            : 'Optional note for your goal, motivation, or a simple reminder.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: cs.onSurface.withOpacity(0.72),
+                            ),
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Reminder days', style: Theme.of(context).textTheme.titleSmall),
+              ),
+              const SizedBox(height: 14),
+              _sectionCard(
+                context,
+                title: 'Type, icon & color',
+                subtitle: 'Keep the visual identity clear so the habit is easy to scan.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Build habit'),
+                          selected: _type == Habit.typeBuild,
+                          onSelected: (_) => setState(() => _type = Habit.typeBuild),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Quit habit'),
+                          selected: _type == Habit.typeQuit,
+                          onSelected: (_) => setState(() => _type = Habit.typeQuit),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Icon', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: Habit.iconKeys.map((key) {
+                        final selected = key == _iconKey;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => setState(() => _iconKey = key),
+                          child: Container(
+                            width: 54,
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: selected ? accent.withOpacity(0.16) : cs.surface,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: selected ? accent : cs.outline.withOpacity(0.14),
+                                width: selected ? 1.8 : 1,
+                              ),
+                            ),
+                            child: Icon(Habit.iconDataFor(key), color: selected ? accent : cs.onSurface.withOpacity(0.74)),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Color', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: Habit.colorPalette.map((value) {
+                        final color = Color(value);
+                        final selected = value == _colorValue;
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: () => setState(() => _colorValue = value),
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: selected ? cs.onSurface : Colors.transparent,
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withOpacity(0.24),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: selected ? const Icon(Icons.check, color: Colors.white, size: 18) : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: List<Widget>.generate(7, (index) {
-                    final weekday = index + 1;
-                    return FilterChip(
-                      label: Text(_weekdayLabel(weekday)),
-                      selected: _reminderWeekdays.contains(weekday),
-                      onSelected: (_) => _toggleWeekday(weekday),
-                    );
-                  }),
+              ),
+              const SizedBox(height: 14),
+              _sectionCard(
+                context,
+                title: 'Targets',
+                subtitle: 'Use either a streak target or a weekly target.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Streak target', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _options.map((days) {
+                        final selected = _targetDays == days;
+                        return ChoiceChip(
+                          label: Text(_labelFor(days)),
+                          selected: selected,
+                          onSelected: (_) => setState(() {
+                            _targetDays = days;
+                            if (days > 0) _weeklyTarget = 0;
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Weekly target', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _weeklyOptions.map((times) {
+                        final selected = _weeklyTarget == times;
+                        return ChoiceChip(
+                          label: Text(_weeklyLabelFor(times)),
+                          selected: selected,
+                          onSelected: (_) => setState(() {
+                            _weeklyTarget = times;
+                            if (times > 0) _targetDays = 0;
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _reminderMessageController,
-                  decoration: const InputDecoration(
-                    labelText: 'Custom reminder message',
-                    hintText: 'Optional',
-                  ),
+              ),
+              const SizedBox(height: 14),
+              _sectionCard(
+                context,
+                title: 'Reminders',
+                subtitle: 'Keep it smart and lightweight. You can leave reminders off.',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        FilledButton.tonalIcon(
+                          onPressed: _pickTime,
+                          icon: const Icon(Icons.schedule_outlined),
+                          label: Text(reminderOn ? _formatMinutes(_reminderMinutes!) : 'Choose time'),
+                        ),
+                        if (reminderOn)
+                          OutlinedButton.icon(
+                            onPressed: () => setState(() => _reminderMinutes = null),
+                            icon: const Icon(Icons.notifications_off_outlined),
+                            label: const Text('Turn off'),
+                          ),
+                      ],
+                    ),
+                    if (reminderOn) ...[
+                      const SizedBox(height: 14),
+                      Text('Days', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: List.generate(7, (index) {
+                          final weekday = index + 1;
+                          final selected = _reminderWeekdays.contains(weekday);
+                          return FilterChip(
+                            label: Text(_weekdayLabel(weekday)),
+                            selected: selected,
+                            onSelected: (_) => _toggleWeekday(weekday),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 14),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _reminderOnlyIfIncomplete,
+                        onChanged: (value) => setState(() => _reminderOnlyIfIncomplete = value),
+                        title: const Text('Only if not completed yet'),
+                      ),
+                      SwitchListTile.adaptive(
+                        contentPadding: EdgeInsets.zero,
+                        value: _reminderEveningNudge,
+                        onChanged: (value) => setState(() => _reminderEveningNudge = value),
+                        title: const Text('Evening nudge'),
+                      ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _reminderMessageController,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Custom reminder message',
+                          hintText: 'Optional gentle nudge for this habit',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _reminderOnlyIfIncomplete,
-                  onChanged: (v) => setState(() => _reminderOnlyIfIncomplete = v),
-                  title: const Text('Only if not completed yet'),
-                  subtitle: const Text('Useful wording for nudges and accountability.'),
-                ),
-                SwitchListTile.adaptive(
-                  contentPadding: EdgeInsets.zero,
-                  value: _reminderEveningNudge,
-                  onChanged: (v) => setState(() => _reminderEveningNudge = v),
-                  title: const Text('Evening nudge'),
-                  subtitle: const Text('Adds a softer later reminder on selected days.'),
-                ),
-              ],
-              const SizedBox(height: 20),
+              ),
+              const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: FilledButton.icon(
                   onPressed: _submit,
-                  child: Text(_isEdit ? 'Save' : 'Add'),
+                  icon: const Icon(Icons.check_rounded),
+                  label: Text(_isEdit ? 'Save changes' : 'Create habit'),
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  ),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _sectionCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cs.outline.withOpacity(0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: cs.onSurface.withOpacity(0.72),
+                ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _pill(BuildContext context, String label) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.84),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: cs.outline.withOpacity(0.08)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700),
       ),
     );
   }
