@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
+import 'package:habit_dashboard/features/store/store_showcase_screen.dart';
 
 class StatsScreen extends StatefulWidget {
   final List<Habit> habits;
@@ -26,6 +27,8 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  DateTime? _tryParseYmd(String s) => DateTime.tryParse(s);
 
   int _calcStreak(Habit h) {
     return Habit.calcCurrentStreakPublic(h.completedDates, h.skippedDates);
@@ -131,6 +134,82 @@ class _StatsScreenState extends State<StatsScreen> {
     return count;
   }
 
+
+  int _currentRecoveryStreak(Habit habit) {
+    if (!habit.isQuit) return 0;
+    final today = DateTime.now();
+    int count = 0;
+    for (int i = 0; i < 3650; i++) {
+      final d = DateTime(today.year, today.month, today.day).subtract(Duration(days: i));
+      final key = _keyFromDate(d);
+      if (habit.slipDates.contains(key)) break;
+      if (habit.completedDates.contains(key)) count++;
+    }
+    return count;
+  }
+
+  int _daysSinceLastSlip(Habit habit) {
+    if (!habit.isQuit || habit.slipDates.isEmpty) return -1;
+    final slips = habit.slipDates.map(_tryParseYmd).whereType<DateTime>().toList()..sort();
+    if (slips.isEmpty) return -1;
+    final last = slips.last;
+    return DateTime.now().difference(DateTime(last.year, last.month, last.day)).inDays;
+  }
+
+  Widget _recoveryMomentumCard(List<Habit> habits, int days) {
+    final quits = habits.where((h) => h.isQuit).toList();
+    if (quits.isEmpty) return const SizedBox.shrink();
+    final strongest = quits.reduce((a, b) {
+      final aScore = _currentRecoveryStreak(a) - _slipCount(a, days) * 2;
+      final bScore = _currentRecoveryStreak(b) - _slipCount(b, days) * 2;
+      return aScore >= bScore ? a : b;
+    });
+    final fragile = quits.reduce((a, b) {
+      final aScore = (_daysSinceLastSlip(a) >= 0 ? _daysSinceLastSlip(a) : 999) + _currentRecoveryStreak(a);
+      final bScore = (_daysSinceLastSlip(b) >= 0 ? _daysSinceLastSlip(b) : 999) + _currentRecoveryStreak(b);
+      return aScore <= bScore ? a : b;
+    });
+    final cs = Theme.of(context).colorScheme;
+    final fragileSince = _daysSinceLastSlip(fragile);
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: cs.outline.withOpacity(0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.shield_moon_outlined),
+              const SizedBox(width: 8),
+              Text('Recovery momentum', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'A cleaner comeback view for quit habits: who is stabilizing, who is fragile, and where the next easy win lives.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.72)),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _MetricChip(label: 'Strongest comeback', value: strongest.title, icon: Icons.trending_up_rounded),
+              _MetricChip(label: 'Comeback streak', value: '${_currentRecoveryStreak(strongest)}d', icon: Icons.restart_alt_rounded),
+              _MetricChip(label: 'Fragile now', value: fragile.title, icon: Icons.warning_amber_rounded),
+              _MetricChip(label: 'Since slip', value: fragileSince < 0 ? 'Clean' : '${fragileSince}d', icon: Icons.timer_outlined),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   List<int> _cleanRunsBeforeSlips(Habit habit) {
     final slips = habit.slipDates
         .map(DateTime.tryParse)
@@ -164,17 +243,6 @@ class _StatsScreenState extends State<StatsScreen> {
     final runs = _cleanRunsBeforeSlips(habit);
     if (runs.isEmpty) return 0;
     return runs.reduce((a, b) => a + b) / runs.length;
-  }
-
-  int _daysSinceLastSlip(Habit habit) {
-    final slips = habit.slipDates
-        .map(DateTime.tryParse)
-        .whereType<DateTime>()
-        .map(_dateOnly)
-        .toList()
-      ..sort();
-    if (slips.isEmpty) return -1;
-    return _dateOnly(DateTime.now()).difference(slips.last).inDays;
   }
 
   String _deltaLabel(double delta) {
@@ -456,6 +524,17 @@ class _StatsScreenState extends State<StatsScreen> {
       appBar: AppBar(
         title: const Text('Stats & insights'),
         actions: [
+          IconButton(
+            tooltip: 'Store screenshots',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => StoreShowcaseScreen(habits: shownHabits, rangeDays: _selectedDays),
+                ),
+              );
+            },
+            icon: const Icon(Icons.photo_library_outlined),
+          ),
           IconButton(
             tooltip: 'Progress card',
             onPressed: () {
@@ -1624,6 +1703,44 @@ class _ProgressCardScreen extends StatelessWidget {
           Text(
             'Tip: open this screen and take a screenshot, or tap copy to save a clean text summary.',
             style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.68)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _MetricChip({required this.label, required this.value, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: cs.surface.withOpacity(0.82),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: cs.outline.withOpacity(0.10)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: cs.primary),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: tt.labelSmall?.copyWith(color: cs.onSurface.withOpacity(0.70))),
+              const SizedBox(height: 2),
+              Text(value, style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+            ],
           ),
         ],
       ),

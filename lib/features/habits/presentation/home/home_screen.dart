@@ -14,6 +14,7 @@ import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/habit_detail/habit_detail_screen.dart';
+import 'package:habit_dashboard/features/about/about_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/stats/stats_screen.dart';
 
 import 'widgets/daily_progress_card.dart';
@@ -33,6 +34,9 @@ enum _HomeMenuAction {
   exportBackupFile,
   importBackupFile,
   restorePoints,
+  about,
+  privacy,
+  support,
 }
 
 enum _HabitFilter { all, active, completed, build, quit }
@@ -568,6 +572,127 @@ class _HomeScreenState extends State<HomeScreen> {
     return _countDoneInLastDays(habit, days) / activeDays;
   }
 
+
+  int _currentRecoveryStreak(Habit habit) {
+    if (!habit.isQuit) return 0;
+    final today = DateTime.now();
+    int count = 0;
+    for (int i = 0; i < 3650; i++) {
+      final d = DateTime(today.year, today.month, today.day).subtract(Duration(days: i));
+      final key = _keyFromDate(d);
+      if (habit.slipDates.contains(key)) break;
+      if (habit.completedDates.contains(key)) count++;
+    }
+    return count;
+  }
+
+  int _daysSinceLastSlip(Habit habit) {
+    if (!habit.isQuit || habit.slipDates.isEmpty) return -1;
+    final slips = habit.slipDates.map((e) {
+      final parts = e.split('-');
+      return DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+    }).toList()..sort();
+    return DateTime.now().difference(DateTime(slips.last.year, slips.last.month, slips.last.day)).inDays;
+  }
+
+  Widget _recoveryFocusCard(List<Habit> activeHabits) {
+    final quitHabits = activeHabits.where((h) => h.isQuit).toList();
+    if (quitHabits.isEmpty) return const SizedBox.shrink();
+
+    quitHabits.sort((a, b) {
+      final aSlip = _daysSinceLastSlip(a);
+      final bSlip = _daysSinceLastSlip(b);
+      final aRec = _currentRecoveryStreak(a);
+      final bRec = _currentRecoveryStreak(b);
+      final aScore = (aSlip >= 0 ? aSlip : 999) + aRec;
+      final bScore = (bSlip >= 0 ? bSlip : 999) + bRec;
+      return aScore.compareTo(bScore);
+    });
+
+    final focus = quitHabits.first;
+    final sinceSlip = _daysSinceLastSlip(focus);
+    final recovery = _currentRecoveryStreak(focus);
+    final risky = sinceSlip >= 0 && sinceSlip <= 3;
+    final cs = Theme.of(context).colorScheme;
+
+    final message = sinceSlip < 0
+        ? 'No slips logged yet. Protect the routine before temptation shows up.'
+        : risky
+            ? 'The first few days after a slip are the most fragile. Keep today small and clean.'
+            : recovery >= 7
+                ? 'You are back in rhythm. Protect the comeback and avoid “just this once” decisions.'
+                : 'Recovery is building again. One clean day today matters more than perfection.';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          color: cs.surface,
+          border: Border.all(color: focus.color.withOpacity(0.22)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: focus.color.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(focus.iconData, color: focus.color, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Recovery focus', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text(
+                        focus.title,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.tonal(
+                  onPressed: () => _toggle(focus),
+                  child: const Text('Protect'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.secondaryTextStyle.color)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _overviewChip(icon: Icons.restart_alt_rounded, label: 'Comeback', value: '${recovery}d'),
+                _overviewChip(icon: Icons.timer_outlined, label: 'Since slip', value: sinceSlip < 0 ? 'Clean' : '${sinceSlip}d'),
+                _overviewChip(icon: risky ? Icons.warning_amber_rounded : Icons.verified_rounded, label: 'Mode', value: risky ? 'Guarded' : 'Stable'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _smartCoachCard({
     required List<Habit> activeHabits,
     required String todayKey,
@@ -965,6 +1090,15 @@ class _HomeScreenState extends State<HomeScreen> {
     HapticFeedback.selectionClick();
     if (!mounted) return;
     setState(() {});
+  }
+
+
+  Future<void> _openAbout([AboutSection section = AboutSection.about]) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AboutScreen(initialSection: section),
+      ),
+    );
   }
 
   void _showGoalReachedDialog(String title) {
@@ -1423,6 +1557,18 @@ class _HomeScreenState extends State<HomeScreen> {
         HapticFeedback.selectionClick();
         await _openRestorePoints();
         break;
+      case _HomeMenuAction.about:
+        HapticFeedback.selectionClick();
+        await _openAbout(AboutSection.about);
+        break;
+      case _HomeMenuAction.privacy:
+        HapticFeedback.selectionClick();
+        await _openAbout(AboutSection.privacy);
+        break;
+      case _HomeMenuAction.support:
+        HapticFeedback.selectionClick();
+        await _openAbout(AboutSection.support);
+        break;
     }
   }
 
@@ -1757,6 +1903,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   value: _HomeMenuAction.restorePoints,
                   child: Text('Safety: Restore points'),
                 ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.about,
+                  child: Text('About'),
+                ),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.privacy,
+                  child: Text('Privacy policy'),
+                ),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.support,
+                  child: Text('Support'),
+                ),
               ],
               child: const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
@@ -1804,6 +1963,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         activeHabits: activeHabits,
                         todayKey: todayKey,
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    _fadeSlideSwitcher(
+                      switchKey: 'recovery_focus_${activeHabits.length}_${completed}_${_query}_${_sort}',
+                      child: _recoveryFocusCard(activeHabits),
                     ),
                     const SizedBox(height: 10),
                     _searchBar(),

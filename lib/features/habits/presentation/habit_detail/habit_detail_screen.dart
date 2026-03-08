@@ -266,6 +266,70 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
     setState(() {});
   }
 
+
+  int _currentRecoveryStreak(Habit habit) {
+    if (!habit.isQuit) return 0;
+    final today = _dateOnly(DateTime.now());
+    int count = 0;
+    for (int i = 0; i < 3650; i++) {
+      final d = today.subtract(Duration(days: i));
+      final key = _keyFromDate(d);
+      if (habit.slipDates.contains(key)) break;
+      if (habit.completedDates.contains(key)) count++;
+    }
+    return count;
+  }
+
+  Widget _recoveryCard(Habit habit) {
+    if (!habit.isQuit) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    final comeback = _currentRecoveryStreak(habit);
+    final sinceSlip = _daysSinceLastSlip(habit);
+    final avgRun = _averageCleanRunBeforeSlip(habit);
+    final riskWindow = sinceSlip >= 0 && sinceSlip <= 3;
+    final suggestion = sinceSlip < 0
+        ? 'You have not logged a slip yet. Keep your barriers up early rather than relying on motivation later.'
+        : riskWindow
+            ? 'This is the danger window. Keep the day friction-free: avoid triggers, shorten decisions, and win the next 12 hours.'
+            : comeback >= (avgRun <= 0 ? 3 : avgRun.round())
+                ? 'Your comeback is stronger than your average clean run. Protect routine over motivation today.'
+                : 'You are rebuilding. Make today easy, obvious and boring — clean beats intense.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: cs.outline.withOpacity(0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.health_and_safety_outlined),
+              const SizedBox(width: 8),
+              Text('Smart recovery system', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(suggestion, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: cs.onSurface.withOpacity(0.72))),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _detailMiniStat('Comeback streak', '${comeback}d'),
+              _detailMiniStat('Since last slip', sinceSlip < 0 ? 'Clean' : '${sinceSlip}d'),
+              _detailMiniStat('Avg clean run', avgRun <= 0 ? '—' : '${avgRun.round()}d'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _smartReminderCard(Habit habit) {
     final cs = Theme.of(context).colorScheme;
     final reminderOn = habit.reminderMinutes != null;
@@ -1006,6 +1070,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
           ],
 
           _slipCard(current),
+          if (current.isQuit) const SizedBox(height: 12),
+          _recoveryCard(current),
           if (current.isQuit) const SizedBox(height: 12),
           _notesCard(current),
           if (current.notes.trim().isNotEmpty) const SizedBox(height: 12),

@@ -1,16 +1,36 @@
-# habit_dashboard
+# Habit Dashboard
 
-A new Flutter project.
+Habit Dashboard is a Flutter habit tracker focused on both building good habits and quitting bad ones.
 
-## Getting Started
+## Highlights
+- Build and quit habits
+- Streaks, milestones, skips, slips, and relapse tracking
+- History, insights, heatmap analytics, and trend storytelling
+- Smart reminders, weekly review, and focus suggestions
+- Notes, motivation, archive, sorting, and filters
+- Backup, restore, restore points, and JSON export/import
+- Onboarding, splash screen, exportable progress card, and polished UI
 
-This project is a starting point for a Flutter application.
+## Tech
+- Flutter
+- SharedPreferences for local persistence
+- Local notifications
+- File picker for backup import/export
 
-A few resources to get you started if this is your first Flutter project:
+## Run locally
+```bash
+flutter pub get
+flutter run -d chrome
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Build release
+```bash
+flutter build apk
+flutter build web
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Privacy
+A local privacy policy is included at `assets/privacy_policy.md`.
+
+## Project note
+This project is intended as a polished indie-style habit tracker MVP with strong local-first features.
