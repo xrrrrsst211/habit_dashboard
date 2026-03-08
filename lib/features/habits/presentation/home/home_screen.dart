@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:habit_dashboard/app/app.dart';
 import 'package:habit_dashboard/core/constants/app_strings.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
@@ -15,6 +16,7 @@ import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/habit_detail/habit_detail_screen.dart';
 import 'package:habit_dashboard/features/about/about_screen.dart';
+import 'package:habit_dashboard/features/settings/presentation/settings_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/stats/stats_screen.dart';
 
 import 'widgets/daily_progress_card.dart';
@@ -37,6 +39,7 @@ enum _HomeMenuAction {
   about,
   privacy,
   support,
+  settings,
 }
 
 enum _HabitFilter { all, active, completed, build, quit }
@@ -52,7 +55,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final HabitRepository _repo = HabitRepository();
-  late final Future<void> _initFuture = _repo.init();
+  static const String _prefHomeFilterKey = 'pref_home_filter';
+  static const String _prefHomeSortKey = 'pref_home_sort';
+  static const String _prefShowArchivedKey = 'pref_show_archived';
+  static const String _prefExpandArchivedKey = 'pref_expand_archived';
+  late final Future<void> _initFuture = _boot();
 
   _HabitFilter _filter = _HabitFilter.all;
   _HabitSort _sort = _HabitSort.manual;
@@ -63,6 +70,37 @@ class _HomeScreenState extends State<HomeScreen> {
   String _query = '';
 
   List<Habit> get _habits => _repo.getHabits();
+
+
+  Future<void> _boot() async {
+    await _repo.init();
+    await _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final filterIndex = prefs.getInt(_prefHomeFilterKey);
+    if (filterIndex != null && filterIndex >= 0 && filterIndex < _HabitFilter.values.length) {
+      _filter = _HabitFilter.values[filterIndex];
+    }
+
+    final sortIndex = prefs.getInt(_prefHomeSortKey);
+    if (sortIndex != null && sortIndex >= 0 && sortIndex < _HabitSort.values.length) {
+      _sort = _HabitSort.values[sortIndex];
+    }
+
+    _showArchived = prefs.getBool(_prefShowArchivedKey) ?? _showArchived;
+    _expandArchivedSection = prefs.getBool(_prefExpandArchivedKey) ?? _expandArchivedSection;
+  }
+
+  Future<void> _persistHomePrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefHomeFilterKey, _filter.index);
+    await prefs.setInt(_prefHomeSortKey, _sort.index);
+    await prefs.setBool(_prefShowArchivedKey, _showArchived);
+    await prefs.setBool(_prefExpandArchivedKey, _expandArchivedSection);
+  }
 
   @override
   void dispose() {
@@ -1101,6 +1139,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _openSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const SettingsScreen(),
+      ),
+    );
+    await _loadPreferences();
+    if (!mounted) return;
+    setState(() {});
+  }
+
   void _showGoalReachedDialog(String title) {
     HapticFeedback.heavyImpact();
 
@@ -1529,7 +1578,11 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case _HomeMenuAction.toggleArchived:
         HapticFeedback.selectionClick();
-        setState(() { _showArchived = !_showArchived; if (_showArchived) _expandArchivedSection = true; });
+        setState(() {
+          _showArchived = !_showArchived;
+          if (_showArchived) _expandArchivedSection = true;
+        });
+        await _persistHomePrefs();
         break;
       case _HomeMenuAction.toggleTheme:
         HapticFeedback.selectionClick();
@@ -1568,6 +1621,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case _HomeMenuAction.support:
         HapticFeedback.selectionClick();
         await _openAbout(AboutSection.support);
+        break;
+      case _HomeMenuAction.settings:
+        HapticFeedback.selectionClick();
+        await _openSettings();
         break;
     }
   }
@@ -1743,7 +1800,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return ChoiceChip(
         label: Text(label),
         selected: selected,
-        onSelected: (_) => setState(() => _filter = value),
+        onSelected: (_) async {
+          setState(() => _filter = value);
+          await _persistHomePrefs();
+        },
       );
     }
 
@@ -1787,7 +1847,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   return ChoiceChip(
                     label: Text(_sortLabel(value)),
                     selected: _sort == value,
-                    onSelected: (_) => setState(() => _sort = value),
+                    onSelected: (_) async {
+                      setState(() => _sort = value);
+                      await _persistHomePrefs();
+                    },
                   );
                 }).toList(),
               ),
@@ -1902,6 +1965,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 const PopupMenuItem(
                   value: _HomeMenuAction.restorePoints,
                   child: Text('Safety: Restore points'),
+                ),
+                const PopupMenuItem(
+                  value: _HomeMenuAction.settings,
+                  child: Text('Settings'),
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(

@@ -52,11 +52,25 @@ class _AboutScreenState extends State<AboutScreen> {
                 _HeroCard(
                   icon: Icons.check_circle_rounded,
                   title: 'Habit Dashboard',
-                  subtitle: 'Build better routines. Quit bad ones.',
-                  trailing: 'v1.0.0+1',
+                  subtitle: 'Build better routines. Quit bad ones. Recover without losing the bigger picture.',
+                  trailing: 'v1.1.0+2',
                 ),
                 const SizedBox(height: 16),
               ],
+              if (widget.initialSection == AboutSection.about)
+                _SectionCard(
+                  title: 'Launch readiness',
+                  icon: Icons.rocket_launch_outlined,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _bullet(context, 'Local-first tracking with backups, restore points, and export/import tools.'),
+                      _bullet(context, 'Habit analytics for build and quit flows, including recovery and relapse insights.'),
+                      _bullet(context, 'Ready to demo with onboarding, progress cards, polished empty states, and support info.'),
+                    ],
+                  ),
+                ),
+              if (widget.initialSection == AboutSection.about) const SizedBox(height: 16),
               if (widget.initialSection == AboutSection.about || widget.initialSection == AboutSection.support)
                 _SectionCard(
                   title: 'Support',
@@ -98,7 +112,7 @@ class _AboutScreenState extends State<AboutScreen> {
                     ],
                   ),
                 ),
-              if (widget.initialSection == AboutSection.about) const SizedBox(height: 16),
+              if (widget.initialSection != AboutSection.support) const SizedBox(height: 16),
               if (widget.initialSection == AboutSection.about)
                 _SectionCard(
                   title: 'Product summary',
@@ -107,13 +121,13 @@ class _AboutScreenState extends State<AboutScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _bullet(context, 'Track build habits and quit habits in one place.'),
-                      _bullet(context, 'Use streaks, milestones, reminders, and analytics to stay consistent.'),
+                      _bullet(context, 'Use streaks, milestones, reminders, analytics, and recovery insights to stay consistent.'),
                       _bullet(context, 'Protect your data with backup, restore, and restore points.'),
                       _bullet(context, 'Review progress with heatmaps, trend storytelling, and exportable summaries.'),
                     ],
                   ),
                 ),
-              if (widget.initialSection != AboutSection.support) const SizedBox(height: 16),
+              if (widget.initialSection == AboutSection.about) const SizedBox(height: 16),
               if (widget.initialSection == AboutSection.about || widget.initialSection == AboutSection.privacy)
                 _SectionCard(
                   title: 'Privacy policy',
@@ -263,7 +277,7 @@ class _SectionCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           child,
         ],
       ),

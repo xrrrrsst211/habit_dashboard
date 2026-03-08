@@ -4,11 +4,15 @@ import 'package:habit_dashboard/core/theme/app_styles.dart';
 class EmptyState extends StatelessWidget {
   final String title;
   final String subtitle;
+  final IconData icon;
+  final String? hint;
 
   const EmptyState({
     super.key,
     required this.title,
     required this.subtitle,
+    this.icon = Icons.inbox_outlined,
+    this.hint,
   });
 
   @override
@@ -18,7 +22,7 @@ class EmptyState extends StatelessWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 380),
+        constraints: const BoxConstraints(maxWidth: 420),
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -27,6 +31,7 @@ class EmptyState extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 cs.primary.withValues(alpha: 0.08),
+                cs.secondary.withValues(alpha: 0.04),
                 cs.surface,
               ],
             ),
@@ -37,16 +42,16 @@ class EmptyState extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 72,
-                height: 72,
+                width: 76,
+                height: 76,
                 decoration: BoxDecoration(
                   color: cs.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(24),
                 ),
                 alignment: Alignment.center,
                 child: Icon(
-                  Icons.inbox_outlined,
-                  size: 34,
+                  icon,
+                  size: 36,
                   color: cs.primary,
                 ),
               ),
@@ -65,6 +70,32 @@ class EmptyState extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
+              if (hint != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.outline.withValues(alpha: 0.10)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.lightbulb_outline_rounded, size: 18, color: cs.primary),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          hint!,
+                          style: t.bodySmall?.copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.75),
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),

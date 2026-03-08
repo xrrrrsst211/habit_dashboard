@@ -23,12 +23,21 @@ void showAppSnackBar(
       ),
       content: Row(
         children: [
-          Icon(icon ?? Icons.info_outline_rounded, size: 18, color: cs.primary),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon ?? Icons.info_outline_rounded, size: 16, color: cs.primary),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600),
+              style: TextStyle(color: cs.onSurface, fontWeight: FontWeight.w600, height: 1.2),
             ),
           ),
         ],
@@ -59,8 +68,8 @@ Future<bool> showAppConfirmDialog(
         title: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: (destructive ? cs.error : cs.primary).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
@@ -77,7 +86,7 @@ Future<bool> showAppConfirmDialog(
         ),
         content: Text(
           message,
-          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.82)),
+          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.82), height: 1.35),
         ),
         actions: [
           TextButton(
@@ -120,8 +129,8 @@ Future<void> showAppInfoDialog(
         title: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: cs.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
@@ -135,7 +144,7 @@ Future<void> showAppInfoDialog(
         ),
         content: Text(
           message,
-          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.82)),
+          style: TextStyle(color: cs.onSurface.withValues(alpha: 0.82), height: 1.35),
         ),
         actions: [
           FilledButton(

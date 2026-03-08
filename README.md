@@ -1,21 +1,21 @@
 # Habit Dashboard
 
-Habit Dashboard is a Flutter habit tracker focused on both building good habits and quitting bad ones.
+Habit Dashboard is a polished Flutter habit tracker built for two common use cases in one app: **building good habits** and **quitting bad ones**.
 
-## Highlights
-- Build and quit habits
-- Streaks, milestones, skips, slips, and relapse tracking
-- History, insights, heatmap analytics, and trend storytelling
-- Smart reminders, weekly review, and focus suggestions
-- Notes, motivation, archive, sorting, and filters
+## What the app includes
+- Build habits and quit habits
+- Streaks, milestones, skip days, slips, and relapse tracking
+- History, insights, heatmap analytics, trend storytelling, and recovery metrics
+- Smart reminders, weekly review, focus suggestions, and exportable progress cards
+- Notes, motivation, archive, sorting, filters, and settings/preferences
 - Backup, restore, restore points, and JSON export/import
-- Onboarding, splash screen, exportable progress card, and polished UI
+- Onboarding, splash, privacy policy, about screen, and support details
 
-## Tech
+## Tech stack
 - Flutter
 - SharedPreferences for local persistence
 - Local notifications
-- File picker for backup import/export
+- File picker for import/export workflows
 
 ## Run locally
 ```bash
@@ -23,14 +23,21 @@ flutter pub get
 flutter run -d chrome
 ```
 
-## Build release
+## Release builds
 ```bash
 flutter build apk
 flutter build web
 ```
 
+## Project hygiene
+Before zipping or pushing the project, avoid including generated folders such as:
+- `.dart_tool/`
+- `build/`
+- `**/ephemeral/`
+- browser device profiles created by Flutter web runs
+
 ## Privacy
 A local privacy policy is included at `assets/privacy_policy.md`.
 
-## Project note
-This project is intended as a polished indie-style habit tracker MVP with strong local-first features.
+## Product note
+This project is designed as a strong indie-style habit tracker MVP+ with a local-first foundation and Play Market prep in mind.

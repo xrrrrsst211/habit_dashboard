@@ -12,18 +12,14 @@
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# IntelliJ / VS Code
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# Flutter / Dart / Pub
 **/doc/api/
 **/ios/Flutter/.last_build_id
 .dart_tool/
@@ -33,17 +29,19 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local browser/device profiles accidentally created by flutter web runs
+chrome-device/
+**/chrome-device/
+
+# Platform generated folders
+**/Flutter/ephemeral/
+**/flutter/ephemeral/
+
 # Symbolication related
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
+# Android Studio build artifacts
 /android/app/debug
 /android/app/profile
 /android/app/release
-
-# Generated platform files
-**/Flutter/ephemeral/
-**/flutter/ephemeral/

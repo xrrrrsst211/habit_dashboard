@@ -5,6 +5,8 @@ class AppScaffold extends StatelessWidget {
   final Widget body;
   final Widget? floatingActionButton;
   final bool showDefaultHeader;
+  final Widget? trailing;
+  final String? subtitle;
 
   const AppScaffold({
     super.key,
@@ -12,11 +14,14 @@ class AppScaffold extends StatelessWidget {
     required this.body,
     this.floatingActionButton,
     this.showDefaultHeader = true,
+    this.trailing,
+    this.subtitle,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
     return Scaffold(
       backgroundColor: cs.surface,
       floatingActionButton: floatingActionButton,
@@ -42,11 +47,35 @@ class AppScaffold extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: cs.outline.withValues(alpha: 0.10)),
                   ),
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                            ),
+                            if (subtitle != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                subtitle!,
+                                style: tt.bodyMedium?.copyWith(
+                                  color: cs.onSurface.withValues(alpha: 0.74),
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
+                      ),
+                      if (trailing != null) ...[
+                        const SizedBox(width: 12),
+                        trailing!,
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 14),
