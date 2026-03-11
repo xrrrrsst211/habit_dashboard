@@ -5,6 +5,10 @@ import 'package:habit_dashboard/app/theme.dart';
 import 'package:habit_dashboard/features/habits/presentation/home/home_screen.dart';
 import 'package:habit_dashboard/features/onboarding/presentation/onboarding_screen.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import '../features/auth/presentation/auth_screen.dart';
+import '../core/firebase/firebase_bootstrap.dart';
+
 class MyApp extends StatefulWidget {
   final bool initialDarkMode;
 
@@ -130,15 +134,38 @@ class _AppEntryState extends State<_AppEntry> {
     setState(() => _hasSeenOnboarding = true);
   }
 
+  Widget _buildAuthenticatedFlow() {
+    if (!FirebaseBootstrap.initialized) {
+      return const HomeScreen();
+    }
+
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const AuthScreen();
+        }
+
+        return const HomeScreen();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final Widget child;
     if (_showSplash || !_prefsLoaded) {
       child = const _BrandSplashScreen();
-    } else if (_hasSeenOnboarding) {
-      child = const HomeScreen();
-    } else {
+    } else if (!_hasSeenOnboarding) {
       child = OnboardingScreen(onFinished: _completeOnboarding);
+    } else {
+      child = _buildAuthenticatedFlow();
     }
 
     return AnimatedSwitcher(
@@ -146,7 +173,9 @@ class _AppEntryState extends State<_AppEntry> {
       switchInCurve: Curves.easeOut,
       switchOutCurve: Curves.easeIn,
       child: KeyedSubtree(
-        key: ValueKey('${_showSplash}_${_prefsLoaded}_${_hasSeenOnboarding}'),
+        key: ValueKey(
+          '${_showSplash}_${_prefsLoaded}_${_hasSeenOnboarding}_${FirebaseBootstrap.initialized}',
+        ),
         child: child,
       ),
     );
@@ -220,4 +249,3 @@ class _BrandSplashScreen extends StatelessWidget {
     );
   }
 }
-

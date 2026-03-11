@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:habit_dashboard/app/app.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/features/about/about_screen.dart';
+import 'package:habit_dashboard/core/firebase/firebase_bootstrap.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -94,12 +96,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      'Signed out successfully.',
+      icon: Icons.logout_rounded,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
     final app = MyApp.of(context);
-    final isDark = app?.isDarkMode ?? Theme.of(context).brightness == Brightness.dark;
+    final isDark =
+        app?.isDarkMode ?? Theme.of(context).brightness == Brightness.dark;
+    final firebaseReady = FirebaseBootstrap.initialized;
+    final currentUser = firebaseReady ? FirebaseAuth.instance.currentUser : null;
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -107,12 +122,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return AppScaffold(
       title: 'Settings & preferences',
-      subtitle: 'Tune startup behavior, appearance, and launch-ready info without touching your habit data.',
+      subtitle:
+          'Tune startup behavior, appearance, and launch-ready info without touching your habit data.',
       body: ListView(
         children: [
           _HeroSettingsCard(
             title: 'Your experience, your defaults',
-            subtitle: 'Pick how the app opens, how the dashboard behaves, and what’s ready for demos or Play Market presentation.',
+            subtitle:
+                'Pick how the app opens, how the dashboard behaves, and what’s ready for demos or Play Market presentation.',
             icon: Icons.tune_rounded,
           ),
           const SizedBox(height: 16),
@@ -125,7 +142,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: isDark,
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Dark mode'),
-                  subtitle: Text(isDark ? 'Use the darker look across the app.' : 'Use the lighter look across the app.'),
+                  subtitle: Text(
+                    isDark
+                        ? 'Use the darker look across the app.'
+                        : 'Use the lighter look across the app.',
+                  ),
                   onChanged: (_) async {
                     await app?.toggleDarkMode();
                     if (!mounted) return;
@@ -144,17 +165,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(
                   'Choose how the dashboard should look when you open the app.',
-                  style: tt.bodyMedium?.copyWith(color: cs.onSurface.withValues(alpha: 0.72)),
+                  style: tt.bodyMedium?.copyWith(
+                    color: cs.onSurface.withValues(alpha: 0.72),
+                  ),
                 ),
                 const SizedBox(height: 14),
-                Text('Default filter', style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  'Default filter',
+                  style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
                   value: _filterIndex,
                   items: const [
                     DropdownMenuItem(value: 0, child: Text('All habits')),
                     DropdownMenuItem(value: 1, child: Text('Active only')),
-                    DropdownMenuItem(value: 2, child: Text('Completed today')),
+                    DropdownMenuItem(
+                      value: 2,
+                      child: Text('Completed today'),
+                    ),
                     DropdownMenuItem(value: 3, child: Text('Build habits')),
                     DropdownMenuItem(value: 4, child: Text('Quit habits')),
                   ],
@@ -163,7 +192,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 const SizedBox(height: 14),
-                Text('Default sort', style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  'Default sort',
+                  style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
                   value: _sortIndex,
@@ -182,18 +214,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _showArchived,
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Show archived section on startup'),
-                  subtitle: const Text('Keep archived habits visible when the dashboard opens.'),
+                  subtitle: const Text(
+                    'Keep archived habits visible when the dashboard opens.',
+                  ),
                   onChanged: _setShowArchived,
                 ),
                 SwitchListTile.adaptive(
                   value: _expandArchived,
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Expand archived section on startup'),
-                  subtitle: const Text('Useful if you often restore or review older habits.'),
+                  subtitle: const Text(
+                    'Useful if you often restore or review older habits.',
+                  ),
                   onChanged: _showArchived ? _setExpandArchived : null,
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 16),
+          _SectionCard(
+            title: 'Account',
+            icon: Icons.person_outline_rounded,
+            child: firebaseReady
+                ? Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.alternate_email_rounded),
+                        title: const Text('Signed in as'),
+                        subtitle: Text(
+                          currentUser?.email ?? 'No active account',
+                        ),
+                      ),
+                      if (currentUser != null) ...[
+                        const Divider(height: 20),
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: const Icon(Icons.logout_rounded),
+                          title: const Text('Logout'),
+                          subtitle: const Text(
+                            'Sign out from your current account on this device.',
+                          ),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: _logout,
+                        ),
+                      ],
+                    ],
+                  )
+                : Column(
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.cloud_off_rounded),
+                        title: const Text('Firebase is not configured yet'),
+                        subtitle: const Text(
+                          'Authentication features will appear here after Firebase setup is completed.',
+                        ),
+                      ),
+                    ],
+                  ),
           ),
           const SizedBox(height: 16),
           _SectionCard(
@@ -205,7 +284,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.flag_circle_outlined),
                   title: const Text('Show onboarding again'),
-                  subtitle: const Text('Useful before demos or if you want to review the intro flow.'),
+                  subtitle: const Text(
+                    'Useful before demos or if you want to review the intro flow.',
+                  ),
                   trailing: TextButton(
                     onPressed: _resetOnboarding,
                     child: const Text('Reset'),
@@ -216,7 +297,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.info_outline_rounded),
                   title: const Text('About'),
-                  subtitle: const Text('App version, product summary, and support basics.'),
+                  subtitle: const Text(
+                    'App version, product summary, and support basics.',
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _openAbout(AboutSection.about),
                 ),
@@ -224,7 +307,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.privacy_tip_outlined),
                   title: const Text('Privacy policy'),
-                  subtitle: const Text('Check the local privacy policy included with the app.'),
+                  subtitle: const Text(
+                    'Check the local privacy policy included with the app.',
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _openAbout(AboutSection.privacy),
                 ),
@@ -232,7 +317,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.support_agent_rounded),
                   title: const Text('Support'),
-                  subtitle: const Text('Find the contact address and basic help info.'),
+                  subtitle: const Text(
+                    'Find the contact address and basic help info.',
+                  ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _openAbout(AboutSection.support),
                 ),
@@ -318,7 +405,10 @@ class _HeroSettingsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: tt.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
                 const SizedBox(height: 6),
                 Text(
                   subtitle,
@@ -367,7 +457,9 @@ class _SectionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                 ),
               ),
             ],
