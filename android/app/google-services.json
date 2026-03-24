@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "129080420760",
+    "project_id": "habit-dashboard-df646",
+    "storage_bucket": "habit-dashboard-df646.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129080420760:android:9f0d6487bb363f658c23ed",
+        "android_client_info": {
+          "package_name": "com.example.habit_dashboard"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJYwQk0LnGA4CT1unx5Eap4RQyhulWZXA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

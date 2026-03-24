@@ -8,9 +8,7 @@ import 'core/firebase/firebase_bootstrap.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Local notifications init (permissions + timezone).
   await NotificationService.instance.init();
-
   await FirebaseBootstrap.init();
 
   final prefs = await SharedPreferences.getInstance();
