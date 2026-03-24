@@ -2003,9 +2003,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: AppStrings.emptyTitle,
                   subtitle: AppStrings.emptySubtitle,
                 )
-              : Column(
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 0, 120),
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                   children: [
-                    const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: headerRow,
@@ -2046,14 +2047,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: _fadeSlideSwitcher(
                         switchKey: 'daily_progress_${completed}_${activeHabits.length}',
-                        child: DailyProgressCard(completed: completed, total: activeHabits.length),
+                        child: DailyProgressCard(
+                          completed: completed,
+                          total: activeHabits.length,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: _fadeSlideSwitcher(
-                        switchKey: 'weekly_check_${_weekCheckInDays(activeHabits)}_${activeHabits.length}_$completed',
+                        switchKey:
+                            'weekly_check_${_weekCheckInDays(activeHabits)}_${activeHabits.length}_$completed',
                         child: WeeklyCheckInCard(
                           dayRatios: _weekDayRatios(activeHabits),
                           checkInDays: _weekCheckInDays(activeHabits),
@@ -2061,40 +2066,56 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Expanded(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: _fadeSlideSwitcher(
-                        switchKey: 'list_${visible.map((h) => h.id).join('_')}_${archivedVisible.map((h) => h.id).join('_')}_${_sort.name}_${_filter.name}_${_query}_${_expandArchivedSection}',
-                        child: ListView(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 120),
+                        switchKey:
+                            'list_${visible.map((h) => h.id).join('_')}_${archivedVisible.map((h) => h.id).join('_')}_${_sort.name}_${_filter.name}_${_query}_${_expandArchivedSection}',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _buildStaticSectionHeader(
                               context: context,
                               title: 'Active habits',
-                              subtitle: '${visible.length} shown • ${activeHabits.length} total',
+                              subtitle:
+                                  '${visible.length} shown • ${activeHabits.length} total',
                             ),
                             const SizedBox(height: 12),
                             if (visible.isEmpty)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 24),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 24),
                                 child: Center(
                                   child: Text(
-                                    _query.isEmpty ? 'Nothing here 👀' : 'No matches for “$_query”',
+                                    _query.isEmpty
+                                        ? 'Nothing here 👀'
+                                        : 'No matches for “$_query”',
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodyMedium
-                                        ?.copyWith(color: context.secondaryTextStyle.color),
+                                        ?.copyWith(
+                                          color:
+                                              context.secondaryTextStyle.color,
+                                        ),
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
                               )
                             else if (_sort == _HabitSort.manual)
                               ReorderableListView.builder(
-                                key: const ValueKey('active_manual_reorderable'),
+                                key: const ValueKey(
+                                  'active_manual_reorderable',
+                                ),
                                 shrinkWrap: true,
+                                buildDefaultDragHandles: false,
                                 physics: const NeverScrollableScrollPhysics(),
                                 itemCount: visible.length,
                                 onReorder: (oldIndex, newIndex) async {
-                                  await _repo.reorderByIds(oldIndex, newIndex, visibleIds);
+                                  await _repo.reorderByIds(
+                                    oldIndex,
+                                    newIndex,
+                                    visibleIds,
+                                  );
                                   HapticFeedback.mediumImpact();
                                   if (!mounted) return;
                                   setState(() {});
@@ -2117,10 +2138,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                           child: HabitTile(
                                             habit: h,
                                             onToggle: () => _toggle(h),
-                                            onToggleSkipToday: () => _toggleSkipToday(h),
-                                            onOpenDetails: () => _openDetails(h),
+                                            onToggleSkipToday: () =>
+                                                _toggleSkipToday(h),
+                                            onOpenDetails: () =>
+                                                _openDetails(h),
                                             onEdit: () => _openEditHabit(h),
-                                            onDelete: () => _confirmAndRemoveWithUndo(h),
+                                            onDelete: () =>
+                                                _confirmAndRemoveWithUndo(h),
                                           ),
                                         ),
                                       ],
@@ -2131,15 +2155,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             else
                               ...visible.map(
                                 (h) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
+                                  padding:
+                                      const EdgeInsets.only(bottom: 10),
                                   child: HabitTile(
                                     key: ValueKey('sorted_habit_${h.id}'),
                                     habit: h,
                                     onToggle: () => _toggle(h),
-                                    onToggleSkipToday: () => _toggleSkipToday(h),
+                                    onToggleSkipToday: () =>
+                                        _toggleSkipToday(h),
                                     onOpenDetails: () => _openDetails(h),
                                     onEdit: () => _openEditHabit(h),
-                                    onDelete: () => _confirmAndRemoveWithUndo(h),
+                                    onDelete: () =>
+                                        _confirmAndRemoveWithUndo(h),
                                   ),
                                 ),
                               ),
@@ -2163,7 +2190,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.only(top: 12),
                                   child: archivedVisible.isEmpty
                                       ? Padding(
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 16,
+                                          ),
                                           child: Center(
                                             child: Text(
                                               _query.isEmpty
@@ -2172,45 +2201,79 @@ class _HomeScreenState extends State<HomeScreen> {
                                               style: Theme.of(context)
                                                   .textTheme
                                                   .bodyMedium
-                                                  ?.copyWith(color: context.secondaryTextStyle.color),
+                                                  ?.copyWith(
+                                                    color: context
+                                                        .secondaryTextStyle
+                                                        .color,
+                                                  ),
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
                                         )
                                       : (_sort == _HabitSort.manual
                                           ? ReorderableListView.builder(
-                                              key: const ValueKey('archived_manual_reorderable'),
+                                              key: const ValueKey(
+                                                'archived_manual_reorderable',
+                                              ),
                                               shrinkWrap: true,
-                                              physics: const NeverScrollableScrollPhysics(),
-                                              itemCount: archivedVisible.length,
-                                              onReorder: (oldIndex, newIndex) async {
-                                                await _repo.reorderByIds(oldIndex, newIndex, archivedVisibleIds);
+                                              buildDefaultDragHandles: false,
+                                              physics:
+                                                  const NeverScrollableScrollPhysics(),
+                                              itemCount:
+                                                  archivedVisible.length,
+                                              onReorder:
+                                                  (oldIndex, newIndex) async {
+                                                await _repo.reorderByIds(
+                                                  oldIndex,
+                                                  newIndex,
+                                                  archivedVisibleIds,
+                                                );
                                                 HapticFeedback.mediumImpact();
                                                 if (!mounted) return;
                                                 setState(() {});
                                               },
                                               itemBuilder: (context, index) {
-                                                final h = archivedVisible[index];
+                                                final h =
+                                                    archivedVisible[index];
                                                 return Container(
-                                                  key: ValueKey('archived_habit_${h.id}'),
-                                                  margin: const EdgeInsets.only(bottom: 10),
+                                                  key: ValueKey(
+                                                    'archived_habit_${h.id}',
+                                                  ),
+                                                  margin: const EdgeInsets.only(
+                                                    bottom: 10,
+                                                  ),
                                                   child: Row(
                                                     children: [
                                                       ReorderableDragStartListener(
                                                         index: index,
                                                         child: const Padding(
-                                                          padding: EdgeInsets.only(right: 8),
-                                                          child: Icon(Icons.drag_handle),
+                                                          padding:
+                                                              EdgeInsets.only(
+                                                            right: 8,
+                                                          ),
+                                                          child: Icon(
+                                                            Icons.drag_handle,
+                                                          ),
                                                         ),
                                                       ),
                                                       Expanded(
                                                         child: HabitTile(
                                                           habit: h,
-                                                          onToggle: () => _toggle(h),
-                                                          onToggleSkipToday: () => _toggleSkipToday(h),
-                                                          onOpenDetails: () => _openDetails(h),
-                                                          onEdit: () => _openEditHabit(h),
-                                                          onDelete: () => _confirmAndRemoveWithUndo(h),
+                                                          onToggle: () =>
+                                                              _toggle(h),
+                                                          onToggleSkipToday:
+                                                              () =>
+                                                                  _toggleSkipToday(
+                                                                    h,
+                                                                  ),
+                                                          onOpenDetails: () =>
+                                                              _openDetails(h),
+                                                          onEdit: () =>
+                                                              _openEditHabit(h),
+                                                          onDelete: () =>
+                                                              _confirmAndRemoveWithUndo(
+                                                                h,
+                                                              ),
                                                         ),
                                                       ),
                                                     ],
@@ -2222,15 +2285,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                               children: archivedVisible
                                                   .map(
                                                     (h) => Padding(
-                                                      padding: const EdgeInsets.only(bottom: 10),
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                        bottom: 10,
+                                                      ),
                                                       child: HabitTile(
-                                                        key: ValueKey('sorted_archived_${h.id}'),
+                                                        key: ValueKey(
+                                                          'sorted_archived_${h.id}',
+                                                        ),
                                                         habit: h,
-                                                        onToggle: () => _toggle(h),
-                                                        onToggleSkipToday: () => _toggleSkipToday(h),
-                                                        onOpenDetails: () => _openDetails(h),
-                                                        onEdit: () => _openEditHabit(h),
-                                                        onDelete: () => _confirmAndRemoveWithUndo(h),
+                                                        onToggle: () =>
+                                                            _toggle(h),
+                                                        onToggleSkipToday: () =>
+                                                            _toggleSkipToday(h),
+                                                        onOpenDetails: () =>
+                                                            _openDetails(h),
+                                                        onEdit: () =>
+                                                            _openEditHabit(h),
+                                                        onDelete: () =>
+                                                            _confirmAndRemoveWithUndo(
+                                                              h,
+                                                            ),
                                                       ),
                                                     ),
                                                   )
