@@ -4,16 +4,6 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -30,8 +20,7 @@ class DefaultFirebaseOptions {
         return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for linux.',
         );
       default:
         throw UnsupportedError(
@@ -52,7 +41,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCJYwQk0LnGA4CT1unx5Eap4RQyhulWZXA',
-    appId: '1:129080420760:android:9f0d6487bb363f658c23ed',
+    appId: '1:129080420760:android:eb4f3c13da6171f48c23ed',
     messagingSenderId: '129080420760',
     projectId: 'habit-dashboard-df646',
     storageBucket: 'habit-dashboard-df646.firebasestorage.app',

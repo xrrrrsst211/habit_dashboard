@@ -99,11 +99,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
-    showAppSnackBar(
-      context,
-      'Signed out successfully.',
-      icon: Icons.logout_rounded,
-    );
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    Navigator.of(context).popUntil((route) => route.isFirst);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Signed out successfully.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    });
   }
 
   @override
