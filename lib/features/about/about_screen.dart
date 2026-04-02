@@ -21,7 +21,7 @@ class _AboutScreenState extends State<AboutScreen> {
   late final Future<String> _privacyFuture = rootBundle.loadString('assets/privacy_policy.md');
 
   Future<void> _copySupportEmail() async {
-    await Clipboard.setData(const ClipboardData(text: 'support@habitdashboard.app'));
+    await Clipboard.setData(const ClipboardData(text: 'presshutdev@gmail.com'));
     if (!mounted) return;
     showAppSnackBar(
       context,
@@ -53,7 +53,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   icon: Icons.check_circle_rounded,
                   title: 'Habit Dashboard',
                   subtitle: 'Build better routines. Quit bad ones. Recover without losing the bigger picture.',
-                  trailing: 'v1.1.0+2',
+                  trailing: 'v1.1.1+3',
                 ),
                 const SizedBox(height: 16),
               ],
@@ -79,7 +79,7 @@ class _AboutScreenState extends State<AboutScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'For feedback, bug reports, or demo questions, use the support email below.',
+                        'For feedback, bug reports, Play Market review questions, or demo issues, use the support email below.',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: cs.onSurface.withValues(alpha: 0.78),
                             ),
@@ -98,7 +98,7 @@ class _AboutScreenState extends State<AboutScreen> {
                             const SizedBox(width: 10),
                             const Expanded(
                               child: Text(
-                                'support@habitdashboard.app',
+                                'presshutdev@gmail.com',
                                 style: TextStyle(fontWeight: FontWeight.w700),
                               ),
                             ),

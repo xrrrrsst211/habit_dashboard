@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:habit_dashboard/app/app.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/features/about/about_screen.dart';
-import 'package:habit_dashboard/core/firebase/firebase_bootstrap.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -96,23 +94,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _logout() async {
-    await FirebaseAuth.instance.signOut();
-    if (!mounted) return;
-
-    final messenger = ScaffoldMessenger.of(context);
-
-    Navigator.of(context).popUntil((route) => route.isFirst);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Signed out successfully.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -121,8 +102,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final app = MyApp.of(context);
     final isDark =
         app?.isDarkMode ?? Theme.of(context).brightness == Brightness.dark;
-    final firebaseReady = FirebaseBootstrap.initialized;
-    final currentUser = firebaseReady ? FirebaseAuth.instance.currentUser : null;
 
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -243,44 +222,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionCard(
             title: 'Account',
             icon: Icons.person_outline_rounded,
-            child: firebaseReady
-                ? Column(
-                    children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.alternate_email_rounded),
-                        title: const Text('Signed in as'),
-                        subtitle: Text(
-                          currentUser?.email ?? 'No active account',
-                        ),
-                      ),
-                      if (currentUser != null) ...[
-                        const Divider(height: 20),
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(Icons.logout_rounded),
-                          title: const Text('Logout'),
-                          subtitle: const Text(
-                            'Sign out from your current account on this device.',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: _logout,
-                        ),
-                      ],
-                    ],
-                  )
-                : Column(
-                    children: [
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.cloud_off_rounded),
-                        title: const Text('Firebase is not configured yet'),
-                        subtitle: const Text(
-                          'Authentication features will appear here after Firebase setup is completed.',
-                        ),
-                      ),
-                    ],
+            child: Column(
+              children: const [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.lock_open_rounded),
+                  title: Text('No login required'),
+                  subtitle: Text(
+                    'This release opens straight into your habit dashboard. Firebase auth can stay in the project for future updates, but it is not required for everyday use.',
                   ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           _SectionCard(

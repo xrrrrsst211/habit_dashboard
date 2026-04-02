@@ -5,8 +5,6 @@ import 'package:habit_dashboard/app/theme.dart';
 import 'package:habit_dashboard/features/habits/presentation/home/home_screen.dart';
 import 'package:habit_dashboard/features/onboarding/presentation/onboarding_screen.dart';
 
-import 'package:firebase_auth/firebase_auth.dart';
-import '../features/auth/presentation/auth_screen.dart';
 import '../core/firebase/firebase_bootstrap.dart';
 
 class MyApp extends StatefulWidget {
@@ -134,27 +132,8 @@ class _AppEntryState extends State<_AppEntry> {
     setState(() => _hasSeenOnboarding = true);
   }
 
-  Widget _buildAuthenticatedFlow() {
-    if (!FirebaseBootstrap.initialized) {
-      return const HomeScreen();
-    }
-
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (!snapshot.hasData) {
-          return const AuthScreen();
-        }
-
-        return const HomeScreen();
-      },
-    );
+  Widget _buildReleaseReadyFlow() {
+    return const HomeScreen();
   }
 
   @override
@@ -165,7 +144,7 @@ class _AppEntryState extends State<_AppEntry> {
     } else if (!_hasSeenOnboarding) {
       child = OnboardingScreen(onFinished: _completeOnboarding);
     } else {
-      child = _buildAuthenticatedFlow();
+      child = _buildReleaseReadyFlow();
     }
 
     return AnimatedSwitcher(
@@ -174,7 +153,7 @@ class _AppEntryState extends State<_AppEntry> {
       switchOutCurve: Curves.easeIn,
       child: KeyedSubtree(
         key: ValueKey(
-          '${_showSplash}_${_prefsLoaded}_${_hasSeenOnboarding}_${FirebaseBootstrap.initialized}',
+          '${_showSplash}_${_prefsLoaded}_${_hasSeenOnboarding}',
         ),
         child: child,
       ),
