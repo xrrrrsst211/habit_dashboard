@@ -116,8 +116,7 @@ class NotificationService {
     }
 
     if (kDebugMode) {
-      // ignore: avoid_print
-      print('[notifications] synced smart reminder for ${habit.title}');
+      debugPrint('[notifications] synced smart reminder for ${habit.title}');
     }
   }
 
