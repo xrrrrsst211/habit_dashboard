@@ -7,15 +7,15 @@ class AuthService {
 
   Stream<User?> get authState => _auth.authStateChanges();
 
-  Future<void> signIn(String email, String password) async {
-    await _auth.signInWithEmailAndPassword(
+  Future<UserCredential> signIn(String email, String password) {
+    return _auth.signInWithEmailAndPassword(
       email: email,
       password: password,
     );
   }
 
-  Future<void> register(String email, String password) async {
-    await _auth.createUserWithEmailAndPassword(
+  Future<UserCredential> register(String email, String password) {
+    return _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:habit_dashboard/app/theme.dart';
+import 'package:habit_dashboard/features/auth/data/auth_service.dart';
+import 'package:habit_dashboard/features/auth/presentation/auth_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/home/home_screen.dart';
 import 'package:habit_dashboard/features/onboarding/presentation/onboarding_screen.dart';
-
-import '../core/firebase/firebase_bootstrap.dart';
 
 class MyApp extends StatefulWidget {
   final bool initialDarkMode;
@@ -101,6 +101,8 @@ class _AppEntry extends StatefulWidget {
 class _AppEntryState extends State<_AppEntry> {
   static const _seenOnboardingKey = 'seen_onboarding_v1';
 
+  final AuthService _authService = AuthService();
+
   bool _showSplash = true;
   bool _hasSeenOnboarding = false;
   bool _prefsLoaded = false;
@@ -133,7 +135,21 @@ class _AppEntryState extends State<_AppEntry> {
   }
 
   Widget _buildReleaseReadyFlow() {
-    return const HomeScreen();
+    return StreamBuilder(
+      stream: _authService.authState,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const _BrandSplashScreen();
+        }
+
+        final user = snapshot.data;
+        if (user == null) {
+          return const AuthScreen();
+        }
+
+        return const HomeScreen();
+      },
+    );
   }
 
   @override

@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -5,6 +9,8 @@ import 'package:habit_dashboard/app/app.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/features/about/about_screen.dart';
+import 'package:habit_dashboard/features/auth/data/auth_service.dart';
+import 'package:habit_dashboard/features/auth/data/profile_avatar_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -20,11 +26,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const String _prefExpandArchivedKey = 'pref_expand_archived';
   static const String _seenOnboardingKey = 'seen_onboarding_v1';
 
+  final AuthService _authService = AuthService();
+  final ProfileAvatarService _avatarService = ProfileAvatarService();
+
   bool _loading = true;
+  bool _avatarBusy = false;
   bool _showArchived = false;
   bool _expandArchived = false;
   int _filterIndex = 0;
   int _sortIndex = 0;
+  User? _user;
+  Uint8List? _avatarBytes;
 
   @override
   void initState() {
@@ -34,12 +46,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    final user = _authService.currentUser;
+    Uint8List? avatarBytes;
+
+    if (user != null) {
+      final avatarBase64 = await _avatarService.getAvatarBase64(user.uid);
+      avatarBytes = _avatarService.decode(avatarBase64);
+    }
+
     if (!mounted) return;
     setState(() {
       _filterIndex = prefs.getInt(_prefHomeFilterKey) ?? 0;
       _sortIndex = prefs.getInt(_prefHomeSortKey) ?? 0;
       _showArchived = prefs.getBool(_prefShowArchivedKey) ?? false;
       _expandArchived = prefs.getBool(_prefExpandArchivedKey) ?? false;
+      _user = user;
+      _avatarBytes = avatarBytes;
       _loading = false;
     });
   }
@@ -73,6 +95,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setSort(int value) async {
     setState(() => _sortIndex = value);
     await _save();
+  }
+
+
+  Future<void> _pickProfileAvatar() async {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    try {
+      setState(() => _avatarBusy = true);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final bytes = result.files.single.bytes;
+      if (bytes == null) {
+        if (!mounted) return;
+        showAppSnackBar(
+          context,
+          'Could not read this image. Try another one.',
+          icon: Icons.error_outline_rounded,
+        );
+        return;
+      }
+
+      if (bytes.length > ProfileAvatarService.maxAvatarBytes) {
+        if (!mounted) return;
+        showAppSnackBar(
+          context,
+          'Pick a smaller image under 2 MB.',
+          icon: Icons.image_not_supported_outlined,
+        );
+        return;
+      }
+
+      await _avatarService.saveAvatarBytes(user.uid, bytes);
+      if (!mounted) return;
+      setState(() => _avatarBytes = bytes);
+      showAppSnackBar(
+        context,
+        'Profile avatar updated.',
+        icon: Icons.check_circle_outline_rounded,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        'Could not open image picker.',
+        icon: Icons.error_outline_rounded,
+      );
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _removeProfileAvatar() async {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    await _avatarService.removeAvatar(user.uid);
+    if (!mounted) return;
+    setState(() => _avatarBytes = null);
+    showAppSnackBar(
+      context,
+      'Profile avatar removed.',
+      icon: Icons.delete_outline_rounded,
+    );
+  }
+
+  Future<void> _logout() async {
+    await _authService.logout();
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _resetOnboarding() async {
@@ -222,17 +320,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionCard(
             title: 'Account',
             icon: Icons.person_outline_rounded,
-            child: Column(
-              children: const [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.lock_open_rounded),
-                  title: Text('No login required'),
-                  subtitle: Text(
-                    'This release opens straight into your habit dashboard. Firebase auth can stay in the project for future updates, but it is not required for everyday use.',
-                  ),
-                ),
-              ],
+            child: _AccountSettingsPanel(
+              user: _user,
+              avatarBytes: _avatarBytes,
+              avatarBusy: _avatarBusy,
+              onPickAvatar: _pickProfileAvatar,
+              onRemoveAvatar: _removeProfileAvatar,
+              onLogout: _logout,
             ),
           ),
           const SizedBox(height: 16),
@@ -315,6 +409,120 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+}
+
+
+class _AccountSettingsPanel extends StatelessWidget {
+  final User? user;
+  final Uint8List? avatarBytes;
+  final bool avatarBusy;
+  final VoidCallback onPickAvatar;
+  final VoidCallback onRemoveAvatar;
+  final VoidCallback onLogout;
+
+  const _AccountSettingsPanel({
+    required this.user,
+    required this.avatarBytes,
+    required this.avatarBusy,
+    required this.onPickAvatar,
+    required this.onRemoveAvatar,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final email = user?.email ?? 'Signed in account';
+    final avatar = avatarBytes == null
+        ? Icon(Icons.person_rounded, size: 34, color: cs.primary)
+        : Image.memory(
+            avatarBytes!,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: cs.primary.withValues(alpha: 0.12),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+              ),
+              child: avatar,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Firebase account is active. Your habit data stays untouched locally.',
+                    style: tt.bodySmall?.copyWith(
+                      color: cs.onSurface.withValues(alpha: 0.68),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: avatarBusy ? null : onPickAvatar,
+                icon: avatarBusy
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add_a_photo_outlined),
+                label: Text(avatarBytes == null ? 'Add avatar' : 'Change avatar'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            IconButton.outlined(
+              tooltip: 'Remove avatar',
+              onPressed: avatarBytes == null || avatarBusy ? null : onRemoveAvatar,
+              icon: const Icon(Icons.delete_outline_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Avatar supports normal image files and is shown cropped like a profile icon.',
+          style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.62)),
+        ),
+        const Divider(height: 24),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.logout_rounded),
+          title: const Text('Log out'),
+          subtitle: const Text('Return to the login / registration screen.'),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onLogout,
+        ),
+      ],
     );
   }
 }
