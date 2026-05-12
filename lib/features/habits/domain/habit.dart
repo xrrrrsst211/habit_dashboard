@@ -194,13 +194,13 @@ class Habit {
     Set<String> skipped = {};
     Set<String> slips = {};
     if (rawDates is List) {
-      dates = rawDates.whereType<String>().toSet();
+      dates = _normalizeDateSet(rawDates);
     }
     if (rawSkipped is List) {
-      skipped = rawSkipped.whereType<String>().toSet();
+      skipped = _normalizeDateSet(rawSkipped);
     }
     if (rawSlips is List) {
-      slips = rawSlips.whereType<String>().toSet();
+      slips = _normalizeDateSet(rawSlips);
     }
 
     if (dates.isEmpty) {
@@ -214,7 +214,7 @@ class Habit {
 
       if (oldDoneToday || oldLast.isNotEmpty || oldStreak > 0) {
         final streakToRebuild = oldStreak > 0 ? oldStreak : 1;
-        final capped = streakToRebuild.clamp(1, 365);
+        final capped = streakToRebuild.clamp(1, 365).toInt();
 
         for (int i = 0; i < capped; i++) {
           final d = endDate.subtract(Duration(days: i));
@@ -227,8 +227,20 @@ class Habit {
     final migratedType = _normalizeType(
       (json['type'] as String?) ?? _suggestType(migratedTitle),
     );
+    // Keep old backups safe: one day must not be done, skipped, and slipped at once.
+    // Slip is the strongest state, then skipped/rest, then completed.
+    dates.removeAll(slips);
+    skipped.removeAll(slips);
+    dates.removeAll(skipped);
+
     final storedBest = (json['bestStreak'] as int?);
-    final best = storedBest ?? _calcBestStreak(dates, skipped);
+    final computedBest = _calcBestStreak(dates, skipped);
+    final best = storedBest == null ? computedBest : storedBest < computedBest ? computedBest : storedBest;
+
+    final rawTargetDays = (json['targetDays'] as int?) ?? 0;
+    final rawWeeklyTarget = (json['weeklyTarget'] as int?) ?? 0;
+    final normalizedWeeklyTarget = rawWeeklyTarget.clamp(0, 7).toInt();
+    final normalizedTargetDays = normalizedWeeklyTarget > 0 ? 0 : rawTargetDays.clamp(0, 3650).toInt();
 
     return Habit(
       id: (json['id'] as String?) ?? '',
@@ -238,8 +250,8 @@ class Habit {
       skippedDates: skipped,
       slipDates: slips,
       bestStreak: best,
-      targetDays: (json['targetDays'] as int?) ?? 0,
-      weeklyTarget: (json['weeklyTarget'] as int?) ?? 0,
+      targetDays: normalizedTargetDays,
+      weeklyTarget: normalizedWeeklyTarget,
       archived: (json['archived'] as bool?) ?? false,
       reminderMinutes: (json['reminderMinutes'] as int?),
       reminderWeekdays: _normalizeReminderWeekdays(
@@ -508,6 +520,16 @@ class Habit {
     if (t.contains('junk')) return 0xFFF59E0B;
     if (type == typeQuit) return 0xFF64748B;
     return defaultColorValue;
+  }
+
+  static Set<String> _normalizeDateSet(Iterable<dynamic> values) {
+    final result = <String>{};
+    for (final value in values) {
+      final parsed = value is String ? _tryParseYmd(value) : null;
+      if (parsed == null) continue;
+      result.add(_ymd(parsed));
+    }
+    return result;
   }
 
   static String _ymd(DateTime d) {
