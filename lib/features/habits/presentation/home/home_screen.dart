@@ -69,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showArchived = false;
   bool _expandArchivedSection = false;
   RewardProfile _rewardProfile = RewardService.profileFromXp(0);
+  int _activeRewardBanners = 0;
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
@@ -168,347 +169,171 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted || reward.xpGained <= 0) return;
 
     final cs = Theme.of(context).colorScheme;
-    HapticFeedback.mediumImpact();
+    HapticFeedback.selectionClick();
 
-    await showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'XP reward',
-      transitionDuration: const Duration(milliseconds: 360),
-      pageBuilder: (context, a1, a2) {
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.86, end: 1.0),
-              duration: const Duration(milliseconds: 360),
-              curve: Curves.easeOutBack,
-              builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 28,
-                      offset: const Offset(0, 10),
-                      color: Colors.black.withOpacity(0.18),
-                    ),
-                  ],
-                  border: Border.all(color: cs.primary.withOpacity(0.24)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: 1),
-                      duration: const Duration(milliseconds: 720),
-                      curve: Curves.elasticOut,
-                      builder: (context, value, child) {
-                        return Transform.rotate(
-                          angle: (1 - value) * -0.25,
-                          child: Transform.scale(scale: 0.72 + (value * 0.28), child: child),
-                        );
-                      },
-                      child: Container(
-                        width: 78,
-                        height: 78,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: cs.primary.withOpacity(0.12),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Text('⚡', style: TextStyle(fontSize: 42)),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      reward.rankChanged
-                          ? 'New rank unlocked!'
-                          : (reward.leveledUp ? 'Level up!' : 'XP earned!'),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '+${reward.xpGained} XP',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                            color: cs.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      reward.rankChanged
-                          ? '${reward.oldRank} → ${reward.newRank}'
-                          : 'Level ${reward.newLevel} • ${reward.newRank}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      reward.reason,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: context.secondaryTextStyle.color,
-                          ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.bolt_rounded),
-                        label: const Text('Claim'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    final title = reward.rankChanged
+        ? 'New rank: ${reward.newRank}'
+        : (reward.leveledUp ? 'Level ${reward.newLevel} unlocked' : '+${reward.xpGained} XP');
+
+    final subtitle = reward.rankChanged
+        ? '+${reward.xpGained} XP • ${reward.oldRank} → ${reward.newRank}'
+        : '${reward.reason}';
+
+    _showCompactRewardBanner(
+      icon: reward.rankChanged || reward.leveledUp
+          ? Icons.emoji_events_rounded
+          : Icons.bolt_rounded,
+      title: title,
+      message: subtitle,
+      accentColor: cs.primary,
+      trailingText: '+${reward.xpGained}',
     );
   }
 
   Future<void> _showAchievementUnlockedDialog(Habit habit, int days) async {
     if (!mounted) return;
 
-    final cs = Theme.of(context).colorScheme;
-    final title = habit.isQuit ? 'Clean streak unlocked!' : 'Achievement unlocked!';
-    final subtitle = habit.isQuit
-        ? '${habit.title} • $days clean days in a row'
-        : '${habit.title} • $days day streak';
-
-    HapticFeedback.heavyImpact();
-
-    await showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Achievement unlocked',
-      transitionDuration: const Duration(milliseconds: 380),
-      pageBuilder: (context, a1, a2) {
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.84, end: 1.0),
-              duration: const Duration(milliseconds: 380),
-              curve: Curves.easeOutBack,
-              builder: (context, scale, child) {
-                return Transform.scale(scale: scale, child: child);
-              },
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24),
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 28,
-                      offset: const Offset(0, 10),
-                      color: Colors.black.withOpacity(0.18),
-                    ),
-                  ],
-                  border: Border.all(
-                    color: habit.color.withOpacity(0.22),
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 78,
-                      height: 78,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: habit.color.withOpacity(0.12),
-                      ),
-                      alignment: Alignment.center,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.center,
-                        children: [
-                          HabitIcon(
-                            habit: habit,
-                            size: 58,
-                            iconSize: 34,
-                            backgroundColor: Colors.transparent,
-                            foregroundColor: habit.color,
-                            shape: BoxShape.circle,
-                          ),
-                          const Positioned(
-                            right: -4,
-                            top: -8,
-                            child: Text('✨', style: TextStyle(fontSize: 22)),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '$days-day milestone',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: habit.color,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: context.secondaryTextStyle.color,
-                          ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.emoji_events_rounded),
-                        label: const Text('Nice'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    HapticFeedback.selectionClick();
+    _showCompactRewardBanner(
+      icon: Icons.emoji_events_rounded,
+      title: habit.isQuit ? '$days clean days' : '$days-day streak',
+      message: habit.title,
+      accentColor: habit.color,
+      trailingText: '🏆',
     );
   }
 
   Future<void> _showBulkAchievementDialog(List<Map<String, dynamic>> unlocked) async {
     if (!mounted || unlocked.isEmpty) return;
 
-    final cs = Theme.of(context).colorScheme;
-    HapticFeedback.heavyImpact();
+    HapticFeedback.selectionClick();
+    final first = unlocked.first;
+    final habit = first['habit'] as Habit;
 
-    await showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Achievements unlocked',
-      transitionDuration: const Duration(milliseconds: 380),
-      pageBuilder: (context, a1, a2) {
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.86, end: 1.0),
-              duration: const Duration(milliseconds: 380),
-              curve: Curves.easeOutBack,
-              builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+    _showCompactRewardBanner(
+      icon: Icons.emoji_events_rounded,
+      title: unlocked.length == 1
+          ? 'Milestone unlocked'
+          : '${unlocked.length} milestones unlocked',
+      message: unlocked.length == 1
+          ? '${habit.title} • ${first['days']} days'
+          : 'Nice work — today pushed several streaks forward.',
+      accentColor: habit.color,
+      trailingText: '🏆',
+    );
+  }
+
+  void _showCompactRewardBanner({
+    required IconData icon,
+    required String title,
+    required String message,
+    required Color accentColor,
+    String? trailingText,
+  }) {
+    if (!mounted) return;
+
+    final overlay = Overlay.maybeOf(context);
+    if (overlay == null) return;
+
+    final slot = _activeRewardBanners.clamp(0, 2);
+    _activeRewardBanners++;
+
+    OverlayEntry? entry;
+    entry = OverlayEntry(
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        final topPadding = MediaQuery.of(context).padding.top;
+
+        return Positioned(
+          top: topPadding + 12 + (slot * 70.0),
+          left: 14,
+          right: 14,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, (1 - value) * -14),
+                  child: Transform.scale(
+                    scale: 0.98 + (value * 0.02),
+                    child: child,
+                  ),
+                ),
+              );
+            },
+            child: Material(
+              color: Colors.transparent,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 22),
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(28),
+                  color: cs.surface.withOpacity(0.97),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: accentColor.withOpacity(0.18)),
                   boxShadow: [
                     BoxShadow(
-                      blurRadius: 28,
-                      offset: const Offset(0, 10),
-                      color: Colors.black.withOpacity(0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                      color: Colors.black.withOpacity(0.10),
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    const Text('🏆', style: TextStyle(fontSize: 52)),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Achievements unlocked!',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                      textAlign: TextAlign.center,
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: accentColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Icon(icon, color: accentColor, size: 20),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${unlocked.length} milestone${unlocked.length == 1 ? '' : 's'} reached today',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: context.secondaryTextStyle.color,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            message,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: context.secondaryTextStyle.color,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 280),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: unlocked.map((entry) {
-                            final habit = entry['habit'] as Habit;
-                            final days = entry['days'] as int;
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                color: habit.color.withOpacity(0.08),
-                                border: Border.all(color: habit.color.withOpacity(0.18)),
+                    if (trailingText != null) ...[
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          trailingText,
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: accentColor,
+                                fontWeight: FontWeight.w900,
                               ),
-                              child: Row(
-                                children: [
-                                  HabitIcon(
-                                    habit: habit,
-                                    size: 36,
-                                    iconSize: 18,
-                                    backgroundColor: habit.color.withOpacity(0.18),
-                                    foregroundColor: habit.color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          habit.title,
-                                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          habit.isQuit ? '$days clean days in a row' : '$days day streak',
-                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                color: context.secondaryTextStyle.color,
-                                              ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(Icons.emoji_events_rounded, color: habit.color),
-                                ],
-                              ),
-                            );
-                          }).toList(),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Awesome'),
-                      ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -517,6 +342,12 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+
+    overlay.insert(entry);
+    Future<void>.delayed(const Duration(milliseconds: 2600), () {
+      entry?.remove();
+      _activeRewardBanners = (_activeRewardBanners - 1).clamp(0, 99).toInt();
+    });
   }
 
   DateTime _startOfWeek(DateTime now) {
@@ -1301,74 +1132,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showGoalReachedDialog(String title) {
-    HapticFeedback.heavyImpact();
-
-    showGeneralDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: 'Goal reached',
-      transitionDuration: const Duration(milliseconds: 420),
-      pageBuilder: (context, a1, a2) {
-        final cs = Theme.of(context).colorScheme;
-
-        return Center(
-          child: Material(
-            color: Colors.transparent,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.75, end: 1.0),
-              duration: const Duration(milliseconds: 420),
-              curve: Curves.elasticOut,
-              builder: (context, scale, child) {
-                return Transform.scale(scale: scale, child: child);
-              },
-              child: Container(
-                padding: const EdgeInsets.all(22),
-                margin: const EdgeInsets.symmetric(horizontal: 28),
-                decoration: BoxDecoration(
-                  color: cs.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 24,
-                      // Keep compatibility across Flutter versions.
-                      color: Colors.black.withOpacity(0.18),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('🎉', style: TextStyle(fontSize: 60)),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Goal reached!',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: context.secondaryTextStyle.color,
-                          ),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Nice 😈'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+    HapticFeedback.selectionClick();
+    _showCompactRewardBanner(
+      icon: Icons.flag_rounded,
+      title: 'Goal reached',
+      message: title,
+      accentColor: Theme.of(context).colorScheme.primary,
+      trailingText: '🎉',
     );
   }
 
