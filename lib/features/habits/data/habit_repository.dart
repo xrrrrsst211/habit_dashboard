@@ -171,23 +171,26 @@ class HabitRepository {
     final today = _todayKey();
 
     final current = _habits[i];
-final newDone = Set<String>.from(current.completedDates);
-final newSkipped = Set<String>.from(current.skippedDates);
+    final newDone = Set<String>.from(current.completedDates);
+    final newSkipped = Set<String>.from(current.skippedDates);
+    final newSlips = Set<String>.from(current.slipDates);
 
-if (newDone.contains(today)) {
-  newDone.remove(today);
-} else {
-  newDone.add(today);
-  newSkipped.remove(today); // can't be both done and skipped
-}
+    if (newDone.contains(today)) {
+      newDone.remove(today);
+    } else {
+      newDone.add(today);
+      newSkipped.remove(today); // can't be both done and skipped
+      newSlips.remove(today); // a clean/done check-in clears a slip for that day
+    }
 
-final best = Habit.calcBestStreakPublic(newDone, newSkipped);
+    final best = Habit.calcBestStreakPublic(newDone, newSkipped);
 
-_habits[i] = current.copyWith(
-  completedDates: newDone,
-  skippedDates: newSkipped,
-  bestStreak: best,
-);
+    _habits[i] = current.copyWith(
+      completedDates: newDone,
+      skippedDates: newSkipped,
+      slipDates: newSlips,
+      bestStreak: best,
+    );
 
     await _save(prefs);
   }
@@ -199,23 +202,26 @@ _habits[i] = current.copyWith(
     final prefs = await SharedPreferences.getInstance();
 
     final current = _habits[i];
-final newDone = Set<String>.from(current.completedDates);
-final newSkipped = Set<String>.from(current.skippedDates);
+    final newDone = Set<String>.from(current.completedDates);
+    final newSkipped = Set<String>.from(current.skippedDates);
+    final newSlips = Set<String>.from(current.slipDates);
 
-if (newDone.contains(dateKey)) {
-  newDone.remove(dateKey);
-} else {
-  newDone.add(dateKey);
-  newSkipped.remove(dateKey); // can't be both done and skipped
-}
+    if (newDone.contains(dateKey)) {
+      newDone.remove(dateKey);
+    } else {
+      newDone.add(dateKey);
+      newSkipped.remove(dateKey); // can't be both done and skipped
+      newSlips.remove(dateKey); // a clean/done check-in clears a slip for that day
+    }
 
-final best = Habit.calcBestStreakPublic(newDone, newSkipped);
+    final best = Habit.calcBestStreakPublic(newDone, newSkipped);
 
-_habits[i] = current.copyWith(
-  completedDates: newDone,
-  skippedDates: newSkipped,
-  bestStreak: best,
-);
+    _habits[i] = current.copyWith(
+      completedDates: newDone,
+      skippedDates: newSkipped,
+      slipDates: newSlips,
+      bestStreak: best,
+    );
 
     await _save(prefs);
   }
@@ -231,12 +237,14 @@ Future<void> toggleSkipDate(String habitId, String dateKey) async {
   final current = _habits[i];
   final newDone = Set<String>.from(current.completedDates);
   final newSkipped = Set<String>.from(current.skippedDates);
+  final newSlips = Set<String>.from(current.slipDates);
 
   if (newSkipped.contains(dateKey)) {
     newSkipped.remove(dateKey);
   } else {
     newSkipped.add(dateKey);
     newDone.remove(dateKey); // can't be both done and skipped
+    newSlips.remove(dateKey); // skipped/rest day clears a slip for that day
   }
 
   final best = Habit.calcBestStreakPublic(newDone, newSkipped);
@@ -244,6 +252,7 @@ Future<void> toggleSkipDate(String habitId, String dateKey) async {
   _habits[i] = current.copyWith(
     completedDates: newDone,
     skippedDates: newSkipped,
+    slipDates: newSlips,
     bestStreak: best,
   );
 
@@ -281,7 +290,7 @@ Future<void> toggleSkipToday(String habitId) async {
         '${DateTime.now().microsecondsSinceEpoch}_${Random().nextInt(1 << 20)}';
 
     // Keep the goals mutually exclusive: weeklyTarget wins if set.
-    final normalizedWeekly = weeklyTarget.clamp(0, 7);
+    final normalizedWeekly = weeklyTarget.clamp(0, 7).toInt();
     final normalizedTargetDays = normalizedWeekly > 0 ? 0 : targetDays;
 
     final habit = Habit(
@@ -329,7 +338,7 @@ Future<void> toggleSkipToday(String habitId) async {
 
   Future<void> insertHabitAt(int index, Habit habit) async {
     final prefs = await SharedPreferences.getInstance();
-    final safeIndex = index.clamp(0, _habits.length);
+    final safeIndex = index.clamp(0, _habits.length).toInt();
 
     // Ensure best streak field is consistent in case it came from an older object.
     final fixed = _ensureBestStreakConsistent(habit);
@@ -423,7 +432,7 @@ Future<void> toggleSkipToday(String habitId) async {
     final prefs = await SharedPreferences.getInstance();
 
     // If user sets a weekly goal, disable duration goal.
-    final normalizedWeekly = weeklyTarget.clamp(0, 7);
+    final normalizedWeekly = weeklyTarget.clamp(0, 7).toInt();
     final updated = _habits[i].copyWith(
       weeklyTarget: normalizedWeekly,
       targetDays: normalizedWeekly > 0 ? 0 : _habits[i].targetDays,
@@ -797,9 +806,30 @@ Future<void> toggleSkipToday(String habitId) async {
   }
 
   Habit _ensureBestStreakConsistent(Habit h) {
-    final computed = Habit.calcBestStreakPublic(h.completedDates, h.skippedDates);
-    if (h.bestStreak == computed) return h;
-    return h.copyWith(bestStreak: computed);
+    final completed = Set<String>.from(h.completedDates);
+    final skipped = Set<String>.from(h.skippedDates);
+    final slips = Set<String>.from(h.slipDates);
+
+    // A date can only have one final status. Slip wins over skipped/done,
+    // skipped wins over done, and done remains the normal positive check-in.
+    completed.removeAll(slips);
+    skipped.removeAll(slips);
+    completed.removeAll(skipped);
+
+    final computed = Habit.calcBestStreakPublic(completed, skipped);
+    if (h.bestStreak == computed &&
+        completed.length == h.completedDates.length &&
+        skipped.length == h.skippedDates.length &&
+        slips.length == h.slipDates.length) {
+      return h;
+    }
+
+    return h.copyWith(
+      completedDates: completed,
+      skippedDates: skipped,
+      slipDates: slips,
+      bestStreak: computed,
+    );
   }
 
   Future<void> _save(SharedPreferences prefs) async {
