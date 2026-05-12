@@ -11,6 +11,7 @@ import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/features/about/about_screen.dart';
 import 'package:habit_dashboard/features/auth/data/auth_service.dart';
 import 'package:habit_dashboard/features/auth/data/profile_avatar_service.dart';
+import 'package:habit_dashboard/features/auth/presentation/auth_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const String _prefShowArchivedKey = 'pref_show_archived';
   static const String _prefExpandArchivedKey = 'pref_expand_archived';
   static const String _seenOnboardingKey = 'seen_onboarding_v1';
+  static const String _guestModeKey = 'continue_without_account_v1';
 
   final AuthService _authService = AuthService();
   final ProfileAvatarService _avatarService = ProfileAvatarService();
@@ -168,9 +170,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_guestModeKey, false);
     await _authService.logout();
     if (!mounted) return;
     Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  Future<void> _openAccountAuth() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AuthScreen(
+          onSignedIn: () async {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool(_guestModeKey, false);
+            if (!mounted) return;
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          },
+        ),
+      ),
+    );
+    await _load();
   }
 
   Future<void> _resetOnboarding() async {
@@ -327,6 +347,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPickAvatar: _pickProfileAvatar,
               onRemoveAvatar: _removeProfileAvatar,
               onLogout: _logout,
+              onOpenAccountAuth: _openAccountAuth,
             ),
           ),
           const SizedBox(height: 16),
@@ -421,6 +442,7 @@ class _AccountSettingsPanel extends StatelessWidget {
   final VoidCallback onPickAvatar;
   final VoidCallback onRemoveAvatar;
   final VoidCallback onLogout;
+  final VoidCallback onOpenAccountAuth;
 
   const _AccountSettingsPanel({
     required this.user,
@@ -429,12 +451,79 @@ class _AccountSettingsPanel extends StatelessWidget {
     required this.onPickAvatar,
     required this.onRemoveAvatar,
     required this.onLogout,
+    required this.onOpenAccountAuth,
   });
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    if (user == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: cs.primary.withValues(alpha: 0.12),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.20)),
+                ),
+                alignment: Alignment.center,
+                child: Icon(Icons.person_outline_rounded, size: 36, color: cs.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Guest mode',
+                      style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'No account required. Your habits, XP, ranks, and settings stay on this device.',
+                      style: tt.bodySmall?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.68),
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onOpenAccountAuth,
+              icon: const Icon(Icons.person_add_alt_1_rounded),
+              label: const Text('Create account / login'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Account is optional, but it lets you personalize your profile with an avatar and makes the reward profile feel more yours.',
+            style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.62)),
+          ),
+          const Divider(height: 24),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.login_rounded),
+            title: const Text('Show login screen on next launch'),
+            subtitle: const Text('Turn off guest auto-entry and return to the account screen.'),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: onLogout,
+          ),
+        ],
+      );
+    }
+
     final email = user?.email ?? 'Signed in account';
     final avatar = avatarBytes == null
         ? Icon(Icons.person_rounded, size: 34, color: cs.primary)

@@ -100,11 +100,13 @@ class _AppEntry extends StatefulWidget {
 
 class _AppEntryState extends State<_AppEntry> {
   static const _seenOnboardingKey = 'seen_onboarding_v1';
+  static const _guestModeKey = 'continue_without_account_v1';
 
   final AuthService _authService = AuthService();
 
   bool _showSplash = true;
   bool _hasSeenOnboarding = false;
+  bool _guestMode = false;
   bool _prefsLoaded = false;
 
   @override
@@ -117,6 +119,7 @@ class _AppEntryState extends State<_AppEntry> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     _hasSeenOnboarding = prefs.getBool(_seenOnboardingKey) ?? false;
+    _guestMode = prefs.getBool(_guestModeKey) ?? false;
     if (!mounted) return;
     setState(() => _prefsLoaded = true);
   }
@@ -134,6 +137,13 @@ class _AppEntryState extends State<_AppEntry> {
     setState(() => _hasSeenOnboarding = true);
   }
 
+  Future<void> _continueWithoutAccount() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_guestModeKey, true);
+    if (!mounted) return;
+    setState(() => _guestMode = true);
+  }
+
   Widget _buildReleaseReadyFlow() {
     return StreamBuilder(
       stream: _authService.authState,
@@ -143,8 +153,8 @@ class _AppEntryState extends State<_AppEntry> {
         }
 
         final user = snapshot.data;
-        if (user == null) {
-          return const AuthScreen();
+        if (user == null && !_guestMode) {
+          return AuthScreen(onContinueAsGuest: _continueWithoutAccount);
         }
 
         return const HomeScreen();

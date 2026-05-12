@@ -12,6 +12,7 @@ import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/empty_state.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
+import 'package:habit_dashboard/features/habits/data/reward_service.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/add_habit/add_habit_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/habit_detail/habit_detail_screen.dart';
@@ -56,6 +57,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final HabitRepository _repo = HabitRepository();
+  final RewardService _rewardService = RewardService();
   static const String _prefHomeFilterKey = 'pref_home_filter';
   static const String _prefHomeSortKey = 'pref_home_sort';
   static const String _prefShowArchivedKey = 'pref_show_archived';
@@ -66,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
   _HabitSort _sort = _HabitSort.manual;
   bool _showArchived = false;
   bool _expandArchivedSection = false;
+  RewardProfile _rewardProfile = RewardService.profileFromXp(0);
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _query = '';
@@ -76,6 +79,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _boot() async {
     await _repo.init();
     await _loadPreferences();
+    _rewardProfile = await _rewardService.getProfile();
+  }
+
+  Future<void> _refreshRewardProfile() async {
+    final profile = await _rewardService.getProfile();
+    if (!mounted) {
+      _rewardProfile = profile;
+      return;
+    }
+    setState(() => _rewardProfile = profile);
   }
 
   Future<void> _loadPreferences() async {
@@ -149,6 +162,116 @@ class _HomeScreenState extends State<HomeScreen> {
       if (before < days && after >= days) return days;
     }
     return null;
+  }
+
+  Future<void> _showRewardUnlockedDialog(RewardResult reward) async {
+    if (!mounted || reward.xpGained <= 0) return;
+
+    final cs = Theme.of(context).colorScheme;
+    HapticFeedback.mediumImpact();
+
+    await showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'XP reward',
+      transitionDuration: const Duration(milliseconds: 360),
+      pageBuilder: (context, a1, a2) {
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.86, end: 1.0),
+              duration: const Duration(milliseconds: 360),
+              curve: Curves.easeOutBack,
+              builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
+                      color: Colors.black.withOpacity(0.18),
+                    ),
+                  ],
+                  border: Border.all(color: cs.primary.withOpacity(0.24)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 720),
+                      curve: Curves.elasticOut,
+                      builder: (context, value, child) {
+                        return Transform.rotate(
+                          angle: (1 - value) * -0.25,
+                          child: Transform.scale(scale: 0.72 + (value * 0.28), child: child),
+                        );
+                      },
+                      child: Container(
+                        width: 78,
+                        height: 78,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: cs.primary.withOpacity(0.12),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Text('⚡', style: TextStyle(fontSize: 42)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      reward.rankChanged
+                          ? 'New rank unlocked!'
+                          : (reward.leveledUp ? 'Level up!' : 'XP earned!'),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '+${reward.xpGained} XP',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: cs.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      reward.rankChanged
+                          ? '${reward.oldRank} → ${reward.newRank}'
+                          : 'Level ${reward.newLevel} • ${reward.newRank}',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      reward.reason,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: context.secondaryTextStyle.color,
+                          ),
+                    ),
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.bolt_rounded),
+                        label: const Text('Claim'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _showAchievementUnlockedDialog(Habit habit, int days) async {
@@ -1090,6 +1213,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _toggle(Habit habit) async {
+    final today = _todayKey();
+    final beforeCompletedToday = habit.completedDates.contains(today);
     final beforeStreak = _calcStreak(habit);
     final beforeReachedDuration =
         habit.targetDays > 0 && beforeStreak >= habit.targetDays;
@@ -1103,6 +1228,7 @@ class _HomeScreenState extends State<HomeScreen> {
       orElse: () => habit,
     );
 
+    final afterCompletedToday = updated.completedDates.contains(today);
     final afterStreak = _calcStreak(updated);
     final afterReachedDuration =
         updated.targetDays > 0 && afterStreak >= updated.targetDays;
@@ -1113,10 +1239,28 @@ class _HomeScreenState extends State<HomeScreen> {
       after: afterStreak,
     );
 
+    RewardResult? reward;
+    if (!beforeCompletedToday && afterCompletedToday) {
+      reward = await _rewardService.awardCompletion(
+        habitId: updated.id,
+        dateKey: today,
+        isQuitHabit: updated.isQuit,
+        currentStreak: afterStreak,
+        reachedWeeklyGoalNow: !beforeReachedWeekly && afterReachedWeekly,
+        reachedDurationGoalNow: !beforeReachedDuration && afterReachedDuration,
+        habitTitle: updated.title,
+      );
+      _rewardProfile = await _rewardService.getProfile();
+    }
+
     HapticFeedback.lightImpact();
 
     if (!mounted) return;
     setState(() {});
+
+    if (reward != null) {
+      await _showRewardUnlockedDialog(reward);
+    }
 
     if ((!beforeReachedDuration && afterReachedDuration) ||
         (!beforeReachedWeekly && afterReachedWeekly)) {
@@ -1554,6 +1698,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // =========================
 
   Future<void> _onMenuSelected(_HomeMenuAction action) async {
+    final todayKey = _todayKey();
     switch (action) {
       case _HomeMenuAction.markAllDone:
         final beforeHabits = List<Habit>.from(_repo.getHabits());
@@ -1561,9 +1706,50 @@ class _HomeScreenState extends State<HomeScreen> {
           for (final habit in beforeHabits) habit.id: habit,
         };
         await _repo.markAllDoneToday();
+        final rewardInputs = <RewardCompletionInput>[];
+        for (final habit in _repo.getHabits()) {
+          final before = beforeById[habit.id];
+          if (before == null || before.completedDates.contains(todayKey)) continue;
+          if (!habit.completedDates.contains(todayKey)) continue;
+          final beforeReachedDuration = before.targetDays > 0 && _calcStreak(before) >= before.targetDays;
+          final afterReachedDuration = habit.targetDays > 0 && _calcStreak(habit) >= habit.targetDays;
+          final beforeReachedWeekly = before.weeklyTarget > 0 && _countThisWeek(before.completedDates) >= before.weeklyTarget;
+          final afterReachedWeekly = habit.weeklyTarget > 0 && _countThisWeek(habit.completedDates) >= habit.weeklyTarget;
+          rewardInputs.add(
+            RewardCompletionInput(
+              habitId: habit.id,
+              dateKey: todayKey,
+              isQuitHabit: habit.isQuit,
+              currentStreak: _calcStreak(habit),
+              reachedWeeklyGoalNow: !beforeReachedWeekly && afterReachedWeekly,
+              reachedDurationGoalNow: !beforeReachedDuration && afterReachedDuration,
+              habitTitle: habit.title,
+            ),
+          );
+        }
+        final rewards = await _rewardService.awardManyCompletions(inputs: rewardInputs);
+        _rewardProfile = await _rewardService.getProfile();
         HapticFeedback.lightImpact();
         if (!mounted) return;
         setState(() {});
+
+        if (rewards.isNotEmpty) {
+          final totalXp = rewards.fold<int>(0, (sum, reward) => sum + reward.xpGained);
+          final last = rewards.last;
+          await _showRewardUnlockedDialog(
+            RewardResult(
+              xpGained: totalXp,
+              totalXp: last.totalXp,
+              oldLevel: rewards.first.oldLevel,
+              newLevel: last.newLevel,
+              oldRank: rewards.first.oldRank,
+              newRank: last.newRank,
+              leveledUp: rewards.any((r) => r.leveledUp),
+              rankChanged: rewards.any((r) => r.rankChanged),
+              reason: '${rewards.length} habits completed today',
+            ),
+          );
+        }
 
         final unlocked = <Map<String, dynamic>>[];
         for (final habit in _repo.getHabits()) {
@@ -1714,6 +1900,106 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _rewardCard() {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final profile = _rewardProfile;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: profile.levelProgress),
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+        builder: (context, progress, _) {
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  cs.primary.withOpacity(0.14),
+                  cs.secondary.withOpacity(0.07),
+                  cs.surface,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: cs.primary.withOpacity(0.14)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('🏆', style: TextStyle(fontSize: 28)),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${profile.rank} • Level ${profile.level}',
+                            style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${profile.totalXp} XP total • ${profile.xpToNextLevel} XP to next level',
+                            style: tt.bodySmall?.copyWith(color: context.secondaryTextStyle.color),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: cs.primary.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '+${RewardService.baseCheckInXp} XP/check',
+                        style: tt.labelMedium?.copyWith(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 10,
+                    backgroundColor: cs.primary.withOpacity(0.10),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Complete habits to earn XP. Streaks, weekly goals, duration goals, and quit-habit clean days give bonus XP.',
+                  style: tt.bodySmall?.copyWith(
+                    color: cs.onSurface.withOpacity(0.70),
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -2027,6 +2313,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       activeHabits: activeHabits,
                       archivedHabits: archivedHabits,
                       completedToday: completed,
+                    ),
+                    const SizedBox(height: 10),
+                    _fadeSlideSwitcher(
+                      switchKey: 'reward_${_rewardProfile.totalXp}_${_rewardProfile.level}_${_rewardProfile.rank}',
+                      child: _rewardCard(),
                     ),
                     const SizedBox(height: 10),
                     _quickActionsRow(),

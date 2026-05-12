@@ -8,7 +8,14 @@ import '../data/auth_service.dart';
 import '../data/profile_avatar_service.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  final VoidCallback? onContinueAsGuest;
+  final VoidCallback? onSignedIn;
+
+  const AuthScreen({
+    super.key,
+    this.onContinueAsGuest,
+    this.onSignedIn,
+  });
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -141,6 +148,8 @@ class _AuthScreenState extends State<AuthScreen> {
           await _avatarService.saveAvatarBytes(uid, _selectedAvatarBytes!);
         }
       }
+
+      widget.onSignedIn?.call();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -265,6 +274,28 @@ class _AuthScreenState extends State<AuthScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: cs.primary.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: cs.primary.withOpacity(0.14)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Text('🏆', style: TextStyle(fontSize: 28)),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Text(
+                                          'Earn XP, levels, and ranks by finishing habits. Account is optional, but your profile avatar makes it feel like your own reward journey.',
+                                          style: tt.bodySmall?.copyWith(height: 1.32),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
                                 Text(
                                   login ? 'Welcome back' : 'Create account',
                                   style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
@@ -272,8 +303,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   login
-                                      ? 'Sign in with the account you created for Habit Dashboard.'
-                                      : 'Register with email and password. You can also add a custom profile avatar.',
+                                      ? 'Login is optional. Continue as guest now, or sign in to make your profile feel personal.'
+                                      : 'Register with email and password. Add an avatar and keep your reward identity clean.',
                                   style: tt.bodyMedium?.copyWith(
                                     color: cs.onSurface.withOpacity(0.72),
                                     height: 1.35,
@@ -374,6 +405,37 @@ class _AuthScreenState extends State<AuthScreen> {
                                     ),
                                   ),
                                 ),
+                                if (widget.onContinueAsGuest != null) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(child: Divider(color: cs.outline.withOpacity(0.20))),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        child: Text(
+                                          'or',
+                                          style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.58)),
+                                        ),
+                                      ),
+                                      Expanded(child: Divider(color: cs.outline.withOpacity(0.20))),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed: loading ? null : widget.onContinueAsGuest,
+                                      icon: const Icon(Icons.person_outline_rounded),
+                                      label: const Text('Continue without account'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Guest mode keeps all current habit features on this device. You can create an account later from Settings.',
+                                    textAlign: TextAlign.center,
+                                    style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.62), height: 1.3),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
