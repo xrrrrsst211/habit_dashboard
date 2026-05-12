@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
+import 'package:habit_dashboard/features/habits/presentation/widgets/habit_icon.dart';
 
 class HabitHistoryScreen extends StatefulWidget {
   final HabitRepository repo;
@@ -853,14 +854,13 @@ class _HabitHistoryScreenState extends State<HabitHistoryScreen> {
         children: [
           Row(
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: habit.color.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(habit.iconData, color: habit.color),
+              HabitIcon(
+                habit: habit,
+                size: 48,
+                iconSize: 24,
+                backgroundColor: habit.color.withOpacity(0.14),
+                foregroundColor: habit.color,
+                borderRadius: 16,
               ),
               const SizedBox(width: 12),
               Expanded(
