@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
+import 'package:habit_dashboard/features/habits/presentation/widgets/habit_icon.dart';
 
 class AddHabitScreen extends StatefulWidget {
   final String? initialTitle;
@@ -14,6 +18,7 @@ class AddHabitScreen extends StatefulWidget {
   final String? initialNotes;
   final String? initialIconKey;
   final int? initialColorValue;
+  final String? initialCustomIconBase64;
 
   const AddHabitScreen({
     super.key,
@@ -29,6 +34,7 @@ class AddHabitScreen extends StatefulWidget {
     this.initialNotes,
     this.initialIconKey,
     this.initialColorValue,
+    this.initialCustomIconBase64,
   });
 
   @override
@@ -49,6 +55,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
   late bool _reminderEveningNudge;
   late String _iconKey;
   late int _colorValue;
+  late String _customIconBase64;
 
   bool get _isEdit => (widget.initialTitle ?? '').trim().isNotEmpty;
 
@@ -70,6 +77,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     _reminderEveningNudge = widget.initialReminderEveningNudge ?? false;
     _iconKey = widget.initialIconKey ?? Habit.defaultIconKey;
     _colorValue = widget.initialColorValue ?? Habit.defaultColorValue;
+    _customIconBase64 = widget.initialCustomIconBase64 ?? '';
 
     if (_weeklyTarget > 0) _targetDays = 0;
   }
@@ -121,6 +129,40 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
     setState(() => _reminderWeekdays = next);
   }
 
+  Future<void> _pickCustomIcon() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.image,
+      allowMultiple: false,
+      withData: true,
+    );
+    if (!mounted || result == null || result.files.isEmpty) return;
+
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      _showIconSnack('Could not read this image. Try another PNG/JPG.');
+      return;
+    }
+
+    const maxBytes = 2 * 1024 * 1024;
+    if (bytes.length > maxBytes) {
+      _showIconSnack('Image is too large. Pick a smaller image under 2 MB.');
+      return;
+    }
+
+    setState(() {
+      _customIconBase64 = base64Encode(bytes);
+    });
+  }
+
+  void _removeCustomIcon() {
+    setState(() => _customIconBase64 = '');
+  }
+
+  void _showIconSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   void _submit() {
     final title = _controller.text.trim();
     if (title.isEmpty) return;
@@ -138,6 +180,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       'notes': _notesController.text.trim(),
       'iconKey': _iconKey,
       'colorValue': _colorValue,
+      'customIconBase64': _customIconBase64,
     });
   }
 
@@ -165,6 +208,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       notes: _notesController.text.trim(),
       iconKey: _iconKey,
       colorValue: _colorValue,
+      customIconBase64: _customIconBase64,
     );
 
     return Scaffold(
@@ -215,7 +259,14 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                           ),
                         ],
                       ),
-                      child: Icon(Habit.iconDataFor(_iconKey), color: Colors.white),
+                      child: HabitIcon(
+                        habit: previewHabit,
+                        size: 58,
+                        iconSize: 26,
+                        backgroundColor: accent,
+                        foregroundColor: Colors.white,
+                        borderRadius: 18,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -234,7 +285,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                             runSpacing: 8,
                             children: [
                               _pill(context, previewHabit.typeLabel),
-                              _pill(context, Habit.iconLabelFor(_iconKey)),
+                              _pill(context, _customIconBase64.trim().isEmpty ? Habit.iconLabelFor(_iconKey) : 'Custom image'),
                               if (reminderOn) _pill(context, _formatMinutes(_reminderMinutes!)),
                             ],
                           ),
@@ -318,14 +369,66 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                     const SizedBox(height: 16),
                     Text('Icon', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
                     const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _customIconBase64.trim().isEmpty ? cs.surface : accent.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: _customIconBase64.trim().isEmpty ? cs.outline.withOpacity(0.12) : accent.withOpacity(0.32),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          HabitIcon(
+                            habit: previewHabit,
+                            size: 46,
+                            iconSize: 22,
+                            backgroundColor: accent.withOpacity(0.14),
+                            foregroundColor: accent,
+                            borderRadius: 14,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _customIconBase64.trim().isEmpty
+                                  ? 'Use one of the built-in icons, or upload your own image.'
+                                  : 'Custom image selected. It will be cropped to icon size.',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurface.withOpacity(0.74),
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: _pickCustomIcon,
+                            icon: const Icon(Icons.image_outlined, size: 18),
+                            label: Text(_customIconBase64.trim().isEmpty ? 'Upload' : 'Change'),
+                          ),
+                          if (_customIconBase64.trim().isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Remove custom image',
+                              onPressed: _removeCustomIcon,
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
                       children: Habit.iconKeys.map((key) {
-                        final selected = key == _iconKey;
+                        final selected = key == _iconKey && _customIconBase64.trim().isEmpty;
                         return InkWell(
                           borderRadius: BorderRadius.circular(16),
-                          onTap: () => setState(() => _iconKey = key),
+                          onTap: () => setState(() {
+                            _iconKey = key;
+                            _customIconBase64 = '';
+                          }),
                           child: Container(
                             width: 54,
                             height: 54,

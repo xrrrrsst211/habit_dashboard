@@ -47,6 +47,9 @@ class Habit {
   final String iconKey;
   final int colorValue;
 
+  /// Optional user-picked image icon stored as base64. Empty = use iconKey.
+  final String customIconBase64;
+
   static const String typeBuild = 'build';
   static const String typeQuit = 'quit';
   static const String defaultIconKey = 'spark';
@@ -112,6 +115,7 @@ class Habit {
     required this.notes,
     required this.iconKey,
     required this.colorValue,
+    this.customIconBase64 = '',
   });
 
   Habit copyWith({
@@ -133,6 +137,7 @@ class Habit {
     String? notes,
     String? iconKey,
     int? colorValue,
+    String? customIconBase64,
   }) {
     return Habit(
       id: id ?? this.id,
@@ -153,6 +158,7 @@ class Habit {
       notes: _normalizeNotes(notes ?? this.notes),
       iconKey: _normalizeIconKey(iconKey ?? this.iconKey),
       colorValue: _normalizeColorValue(colorValue ?? this.colorValue),
+      customIconBase64: _normalizeCustomIconBase64(customIconBase64 ?? this.customIconBase64),
     );
   }
 
@@ -160,6 +166,7 @@ class Habit {
   bool get isBuild => type == typeBuild;
   Color get color => Color(colorValue);
   IconData get iconData => iconDataFor(iconKey);
+  bool get hasCustomIcon => customIconBase64.trim().isNotEmpty;
   String get typeLabel => isQuit ? 'Quit habit' : 'Build habit';
   String get completionActionLabel => isQuit ? 'Stayed clean today' : 'Done today';
   String get streakLabel => isQuit ? 'clean streak' : 'day streak';
@@ -183,6 +190,7 @@ class Habit {
         'notes': notes,
         'iconKey': iconKey,
         'colorValue': colorValue,
+        'customIconBase64': customIconBase64,
       };
 
   static Habit fromJson(Map<String, dynamic> json) {
@@ -267,6 +275,7 @@ class Habit {
       colorValue: _normalizeColorValue(
         (json['colorValue'] as int?) ?? _suggestColorValue(migratedTitle, migratedType),
       ),
+      customIconBase64: _normalizeCustomIconBase64((json['customIconBase64'] as String?) ?? ''),
     );
   }
 
@@ -464,6 +473,10 @@ class Habit {
 
   static int _normalizeColorValue(int value) {
     return colorValues.contains(value) ? value : defaultColorValue;
+  }
+
+  static String _normalizeCustomIconBase64(String value) {
+    return value.trim();
   }
 
   static String _suggestType(String title) {

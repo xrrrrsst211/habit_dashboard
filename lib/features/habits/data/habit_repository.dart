@@ -279,6 +279,7 @@ Future<void> toggleSkipToday(String habitId) async {
     String notes,
     String iconKey,
     int colorValue,
+    String customIconBase64,
   ) async {
     final t = title.trim();
     if (t.isEmpty) return;
@@ -312,6 +313,7 @@ Future<void> toggleSkipToday(String habitId) async {
       notes: notes.trim(),
       iconKey: iconKey,
       colorValue: colorValue,
+      customIconBase64: customIconBase64,
     );
 
     _habits.add(habit);
@@ -398,13 +400,14 @@ Future<void> toggleSkipToday(String habitId) async {
     await _save(prefs);
   }
 
-  Future<void> setAppearance(String id, String iconKey, int colorValue) async {
+  Future<void> setAppearance(String id, String iconKey, int colorValue, [String? customIconBase64]) async {
     final i = _habits.indexWhere((h) => h.id == id);
     if (i == -1) return;
 
     _habits[i] = _habits[i].copyWith(
       iconKey: iconKey,
       colorValue: colorValue,
+      customIconBase64: customIconBase64,
     );
 
     final prefs = await SharedPreferences.getInstance();
