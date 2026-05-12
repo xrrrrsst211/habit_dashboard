@@ -153,8 +153,16 @@ class _AppEntryState extends State<_AppEntry> {
         }
 
         final user = snapshot.data;
-        if (user == null && !_guestMode) {
+        final canUseApp = user != null || _guestMode;
+
+        // First real screen after splash: account choice / auth.
+        // Onboarding is shown only after the user signs in or chooses guest mode.
+        if (!canUseApp) {
           return AuthScreen(onContinueAsGuest: _continueWithoutAccount);
+        }
+
+        if (!_hasSeenOnboarding) {
+          return OnboardingScreen(onFinished: _completeOnboarding);
         }
 
         return const HomeScreen();
@@ -167,8 +175,6 @@ class _AppEntryState extends State<_AppEntry> {
     final Widget child;
     if (_showSplash || !_prefsLoaded) {
       child = const _BrandSplashScreen();
-    } else if (!_hasSeenOnboarding) {
-      child = OnboardingScreen(onFinished: _completeOnboarding);
     } else {
       child = _buildReleaseReadyFlow();
     }
@@ -179,7 +185,7 @@ class _AppEntryState extends State<_AppEntry> {
       switchOutCurve: Curves.easeIn,
       child: KeyedSubtree(
         key: ValueKey(
-          '${_showSplash}_${_prefsLoaded}_${_hasSeenOnboarding}',
+          '${_showSplash}_${_prefsLoaded}_${_hasSeenOnboarding}_${_guestMode}',
         ),
         child: child,
       ),
