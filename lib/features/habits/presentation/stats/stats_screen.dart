@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
+import 'package:habit_dashboard/features/habits/presentation/widgets/habit_icon.dart';
 import 'package:habit_dashboard/features/store/store_showcase_screen.dart';
 
 class StatsScreen extends StatefulWidget {
@@ -1439,14 +1440,13 @@ class _LeaderboardTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: habit.color.withOpacity(0.16),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(habit.iconData, color: habit.color, size: 20),
+          HabitIcon(
+            habit: habit,
+            size: 38,
+            iconSize: 20,
+            backgroundColor: habit.color.withOpacity(0.16),
+            foregroundColor: habit.color,
+            borderRadius: 12,
           ),
           const SizedBox(width: 12),
           Expanded(

@@ -18,6 +18,7 @@ import 'package:habit_dashboard/features/habits/presentation/habit_detail/habit_
 import 'package:habit_dashboard/features/about/about_screen.dart';
 import 'package:habit_dashboard/features/settings/presentation/settings_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/stats/stats_screen.dart';
+import 'package:habit_dashboard/features/habits/presentation/widgets/habit_icon.dart';
 
 import 'widgets/daily_progress_card.dart';
 import 'widgets/habit_tile.dart';
@@ -209,10 +210,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         clipBehavior: Clip.none,
                         alignment: Alignment.center,
                         children: [
-                          Icon(
-                            habit.iconData,
-                            size: 34,
-                            color: habit.color,
+                          HabitIcon(
+                            habit: habit,
+                            size: 58,
+                            iconSize: 34,
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: habit.color,
+                            shape: BoxShape.circle,
                           ),
                           const Positioned(
                             right: -4,
@@ -337,10 +341,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 18,
+                                  HabitIcon(
+                                    habit: habit,
+                                    size: 36,
+                                    iconSize: 18,
                                     backgroundColor: habit.color.withOpacity(0.18),
-                                    child: Icon(habit.iconData, color: habit.color, size: 18),
+                                    foregroundColor: habit.color,
+                                    shape: BoxShape.circle,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -878,14 +885,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: Row(
                       children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: habit.color.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Icon(habit.iconData, color: habit.color, size: 20),
+                        HabitIcon(
+                          habit: habit,
+                          size: 42,
+                          iconSize: 20,
+                          backgroundColor: habit.color.withOpacity(0.12),
+                          foregroundColor: habit.color,
+                          borderRadius: 14,
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -1258,6 +1264,7 @@ class _HomeScreenState extends State<HomeScreen> {
       notes,
       iconKey,
       colorValue,
+      (result['customIconBase64'] as String?) ?? '',
     );
     if (!mounted) return;
     setState(() {});
@@ -1280,6 +1287,7 @@ class _HomeScreenState extends State<HomeScreen> {
           initialNotes: habit.notes,
           initialIconKey: habit.iconKey,
           initialColorValue: habit.colorValue,
+          initialCustomIconBase64: habit.customIconBase64,
         ),
       ),
     );
@@ -1299,6 +1307,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final newNotes = (result['notes'] as String?) ?? habit.notes;
     final newIconKey = (result['iconKey'] as String?) ?? habit.iconKey;
     final newColorValue = (result['colorValue'] as int?) ?? habit.colorValue;
+    final newCustomIconBase64 = (result['customIconBase64'] as String?) ?? habit.customIconBase64;
 
     if (newTitle.isNotEmpty && newTitle != habit.title) {
       await _repo.renameHabit(habit.id, newTitle);
@@ -1330,8 +1339,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (newNotes.trim() != habit.notes.trim()) {
       await _repo.setNotes(habit.id, newNotes);
     }
-    if (newIconKey != habit.iconKey || newColorValue != habit.colorValue) {
-      await _repo.setAppearance(habit.id, newIconKey, newColorValue);
+    if (newIconKey != habit.iconKey ||
+        newColorValue != habit.colorValue ||
+        newCustomIconBase64.trim() != habit.customIconBase64.trim()) {
+      await _repo.setAppearance(habit.id, newIconKey, newColorValue, newCustomIconBase64);
     }
 
     if (!mounted) return;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
+import 'package:habit_dashboard/features/habits/presentation/widgets/habit_icon.dart';
 
 class HabitTile extends StatelessWidget {
   final Habit habit;
@@ -132,14 +133,13 @@ class HabitTile extends StatelessWidget {
                               duration: const Duration(milliseconds: 300),
                               curve: Curves.easeOutBack,
                               builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
-                              child: Container(
-                                width: 42,
-                                height: 42,
-                                decoration: BoxDecoration(
-                                  color: accent.withOpacity(0.14),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Icon(habit.iconData, color: accent, size: 20),
+                              child: HabitIcon(
+                                habit: habit,
+                                size: 42,
+                                iconSize: 20,
+                                backgroundColor: accent.withOpacity(0.14),
+                                foregroundColor: accent,
+                                borderRadius: 14,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -176,7 +176,7 @@ class HabitTile extends StatelessWidget {
                                     runSpacing: 6,
                                     children: [
                                       _chip(context, habit.typeLabel, icon: habit.isQuit ? Icons.shield_outlined : Icons.auto_awesome_outlined),
-                                      _chip(context, Habit.iconLabelFor(habit.iconKey), icon: habit.iconData),
+                                      _chip(context, habit.hasCustomIcon ? 'Custom icon' : Habit.iconLabelFor(habit.iconKey), icon: habit.hasCustomIcon ? Icons.image_outlined : habit.iconData),
                                       if (habit.reminderMinutes != null)
                                         _chip(context, _formatMinutes(habit.reminderMinutes!), icon: Icons.notifications_active_outlined),
                                     ],

@@ -62,6 +62,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       (result['notes'] as String?) ?? '',
       result['iconKey'] as String,
       result['colorValue'] as int,
+      (result['customIconBase64'] as String?) ?? '',
     );
     await widget.onFinished();
 
