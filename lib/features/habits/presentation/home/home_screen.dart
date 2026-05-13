@@ -595,7 +595,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _recoveryFocusCard(List<Habit> activeHabits) {
-    final quitHabits = activeHabits.where((h) => h.isQuit).toList();
+    final quitHabits = activeHabits
+        .where((h) => h.isQuit && h.slipDates.isNotEmpty)
+        .toList();
     if (quitHabits.isEmpty) return const SizedBox.shrink();
 
     quitHabits.sort((a, b) {
@@ -614,77 +616,96 @@ class _HomeScreenState extends State<HomeScreen> {
     final risky = sinceSlip >= 0 && sinceSlip <= 3;
     final cs = Theme.of(context).colorScheme;
 
-    final message = sinceSlip < 0
-        ? 'No slips logged yet. Protect the routine before temptation shows up.'
-        : risky
-            ? 'The first few days after a slip are the most fragile. Keep today small and clean.'
-            : recovery >= 7
-                ? 'You are back in rhythm. Protect the comeback and avoid “just this once” decisions.'
-                : 'Recovery is building again. One clean day today matters more than perfection.';
+    final message = risky
+        ? 'Keep today clean. Small, boring, repeatable.'
+        : recovery >= 7
+            ? 'Comeback is stable. Protect the rhythm.'
+            : 'Rebuild mode: one clean day is enough.';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: cs.surface,
-          border: Border.all(color: focus.color.withOpacity(0.22)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              focus.color.withOpacity(0.14),
+              cs.surface,
+            ],
+          ),
+          border: Border.all(color: focus.color.withOpacity(risky ? 0.34 : 0.18)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: focus.color.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(focus.iconData, color: focus.color, size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            HabitIcon(
+              habit: focus,
+              size: 46,
+              iconSize: 21,
+              backgroundColor: focus.color.withOpacity(0.14),
+              foregroundColor: focus.color,
+              borderRadius: 16,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Text('Recovery focus', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
-                      const SizedBox(height: 2),
                       Text(
-                        focus.title,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        'Recovery',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: risky ? cs.error : focus.color,
+                            ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: (risky ? cs.error : focus.color).withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          risky ? 'guarded' : '${recovery}d comeback',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: risky ? cs.error : focus.color,
+                              ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                FilledButton.tonal(
-                  onPressed: () => _toggle(focus),
-                  child: const Text('Protect'),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    focus.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '$message ${sinceSlip < 0 ? '' : 'Last slip: ${sinceSlip}d ago.'}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.secondaryTextStyle.color,
+                          height: 1.25,
+                        ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.secondaryTextStyle.color)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _overviewChip(icon: Icons.restart_alt_rounded, label: 'Comeback', value: '${recovery}d'),
-                _overviewChip(icon: Icons.timer_outlined, label: 'Since slip', value: sinceSlip < 0 ? 'Clean' : '${sinceSlip}d'),
-                _overviewChip(icon: risky ? Icons.warning_amber_rounded : Icons.verified_rounded, label: 'Mode', value: risky ? 'Guarded' : 'Stable'),
-              ],
+            const SizedBox(width: 8),
+            FilledButton.tonalIcon(
+              onPressed: () => _toggle(focus),
+              icon: const Icon(Icons.shield_outlined, size: 18),
+              label: const Text('Done'),
             ),
           ],
         ),
@@ -707,8 +728,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return _completionRateLastDays(b, 7).compareTo(_completionRateLastDays(a, 7));
       });
 
-    final protectHabits = focusHabits.where((h) => _calcStreak(h) >= 3).toList();
-
     final weeklyPressure = activeHabits.where((h) {
       if (h.weeklyTarget <= 0) return false;
       final done = _countThisWeek(h.completedDates);
@@ -717,177 +736,133 @@ class _HomeScreenState extends State<HomeScreen> {
       return needed > 0 && needed >= remainingDays;
     }).toList();
 
-    final momentum = [...activeHabits]
-      ..sort((a, b) {
-        final rateCmp = _completionRateLastDays(b, 14).compareTo(_completionRateLastDays(a, 14));
-        if (rateCmp != 0) return rateCmp;
-        return _calcStreak(b).compareTo(_calcStreak(a));
-      });
-
-    final leader = momentum.isEmpty ? null : momentum.first;
     final cs = Theme.of(context).colorScheme;
+    final focus = focusHabits.isEmpty ? null : focusHabits.first;
 
-    Widget pill({required IconData icon, required String text, Color? color}) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: (color ?? cs.primary).withOpacity(0.08),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: (color ?? cs.primary).withOpacity(0.16)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color ?? cs.primary),
-            const SizedBox(width: 6),
-            Text(
-              text,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
+    if (focus == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: cs.primary.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: cs.primary.withOpacity(0.14)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.check_circle_rounded, color: cs.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Daily focus clear. Everything planned is done or skipped.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
+    final streak = _calcStreak(focus);
+    final rate7 = (_completionRateLastDays(focus, 7) * 100).round();
+    final subtitle = streak > 0
+        ? '${focus.isQuit ? 'Clean' : 'Streak'} $streak days • 7d $rate7%'
+        : 'Best next action • 7d $rate7%';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              cs.primary.withOpacity(0.10),
-              cs.secondary.withOpacity(0.06),
+              cs.primary.withOpacity(0.12),
+              focus.color.withOpacity(0.08),
               cs.surface,
             ],
           ),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: cs.outline.withOpacity(0.16)),
+          border: Border.all(color: cs.outline.withOpacity(0.14)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.insights_rounded),
-                const SizedBox(width: 8),
-                Text(
-                  'Smart focus',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+            HabitIcon(
+              habit: focus,
+              size: 50,
+              iconSize: 23,
+              backgroundColor: focus.color.withOpacity(0.14),
+              foregroundColor: focus.color,
+              borderRadius: 17,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome_rounded, size: 16, color: cs.primary),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Focus now',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: cs.primary,
+                            ),
                       ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              leader == null
-                  ? 'Start with one small win today.'
-                  : '${leader.title} has the best momentum right now.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: context.secondaryTextStyle.color,
-                  ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (leader != null)
-                  pill(
-                    icon: Icons.local_fire_department_outlined,
-                    text: '${leader.title} • ${_calcStreak(leader)}d streak',
-                    color: leader.color,
-                  ),
-                if (protectHabits.isNotEmpty)
-                  pill(
-                    icon: Icons.shield_outlined,
-                    text: '${protectHabits.length} streak${protectHabits.length == 1 ? '' : 's'} need protecting',
-                  ),
-                if (weeklyPressure.isNotEmpty)
-                  pill(
-                    icon: Icons.calendar_view_week_rounded,
-                    text: '${weeklyPressure.length} weekly goal${weeklyPressure.length == 1 ? '' : 's'} under pressure',
-                    color: cs.secondary,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            if (focusHabits.isEmpty)
-              Text(
-                'Everything planned for today is either done or intentionally skipped. Nice.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              )
-            else
-              Column(
-                children: focusHabits.take(3).map((habit) {
-                  final streak = _calcStreak(habit);
-                  final rate7 = (_completionRateLastDays(habit, 7) * 100).round();
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: cs.surface,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: cs.outline.withOpacity(0.12)),
-                    ),
-                    child: Row(
-                      children: [
-                        HabitIcon(
-                          habit: habit,
-                          size: 42,
-                          iconSize: 20,
-                          backgroundColor: habit.color.withOpacity(0.12),
-                          foregroundColor: habit.color,
-                          borderRadius: 14,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                habit.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                streak > 0
-                                    ? '${habit.isQuit ? 'Clean' : 'Current'} streak: $streak days • 7d ${rate7}%'
-                                    : 'Good pick for today • 7d ${rate7}%',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: context.secondaryTextStyle.color,
-                                    ),
-                              ),
-                            ],
+                      if (weeklyPressure.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: cs.secondary.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'weekly goal',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: cs.secondary,
+                                ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        FilledButton.tonal(
-                          onPressed: () => _toggle(habit),
-                          child: const Text('Done'),
-                        ),
                       ],
-                    ),
-                  );
-                }).toList(),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    focus.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.secondaryTextStyle.color),
+                  ),
+                ],
               ),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: () => _toggle(focus),
+              icon: const Icon(Icons.done_rounded, size: 18),
+              label: const Text('Done'),
+            ),
           ],
         ),
       ),
     );
   }
-
 
   Widget _fadeSlideSwitcher({required Object switchKey, required Widget child}) {
     return AnimatedSwitcher(
@@ -940,12 +915,6 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icons.restart_alt_rounded,
             label: 'Reset today',
             onTap: () => _onMenuSelected(_HomeMenuAction.resetToday),
-          ),
-          const SizedBox(width: 8),
-          action(
-            icon: Icons.file_download_outlined,
-            label: 'Save backup',
-            onTap: () => _onMenuSelected(_HomeMenuAction.exportBackupFile),
           ),
         ],
       ),
@@ -2015,11 +1984,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: _HomeMenuAction.exportBackup,
-                  child: Text('Advanced backup: copy text'),
+                  child: Text('Copy backup text'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.importBackup,
-                  child: Text('Advanced restore: paste text'),
+                  child: Text('Restore from pasted text'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.exportBackupFile,

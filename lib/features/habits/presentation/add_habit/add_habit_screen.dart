@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/widgets/image_crop_editor.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
 import 'package:habit_dashboard/features/habits/presentation/widgets/habit_icon.dart';
 
@@ -150,8 +151,20 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
       return;
     }
 
+    final cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(
+        builder: (_) => ImageCropEditorScreen(
+          imageBytes: bytes,
+          circular: false,
+          title: 'Adjust habit icon',
+          helpText: 'Drag and zoom to choose the exact part that becomes the habit icon.',
+        ),
+      ),
+    );
+
+    if (!mounted || cropped == null) return;
     setState(() {
-      _customIconBase64 = base64Encode(bytes);
+      _customIconBase64 = base64Encode(cropped);
     });
   }
 
@@ -394,7 +407,7 @@ class _AddHabitScreenState extends State<AddHabitScreen> {
                             child: Text(
                               _customIconBase64.trim().isEmpty
                                   ? 'Use one of the built-in icons, or upload your own image.'
-                                  : 'Custom image selected. It will be cropped to icon size.',
+                                  : 'Custom image selected. Tap Change to reposition or zoom it.',
                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                     color: cs.onSurface.withOpacity(0.74),
                                   ),
