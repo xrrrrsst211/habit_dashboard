@@ -14,11 +14,31 @@ class AuthService {
     );
   }
 
-  Future<UserCredential> register(String email, String password) {
-    return _auth.createUserWithEmailAndPassword(
+  Future<UserCredential> register(
+    String email,
+    String password, {
+    String? displayName,
+  }) async {
+    final credential = await _auth.createUserWithEmailAndPassword(
       email: email,
       password: password,
     );
+
+    final cleanName = displayName?.trim() ?? '';
+    if (cleanName.isNotEmpty) {
+      await credential.user?.updateDisplayName(cleanName);
+      await credential.user?.reload();
+    }
+
+    return credential;
+  }
+
+  Future<void> updateDisplayName(String displayName) async {
+    final cleanName = displayName.trim();
+    if (cleanName.isEmpty) return;
+
+    await _auth.currentUser?.updateDisplayName(cleanName);
+    await _auth.currentUser?.reload();
   }
 
   Future<void> logout() async {
