@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/widgets/image_crop_editor.dart';
 
 import '../data/auth_service.dart';
 import '../data/profile_avatar_service.dart';
@@ -137,7 +138,20 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      setState(() => _selectedAvatarBytes = bytes);
+      if (!mounted) return;
+      final cropped = await Navigator.of(context).push<Uint8List>(
+        MaterialPageRoute(
+          builder: (_) => ImageCropEditorScreen(
+            imageBytes: bytes,
+            circular: true,
+            title: 'Adjust avatar',
+            helpText: 'Move and zoom the photo until your avatar looks right.',
+          ),
+        ),
+      );
+
+      if (!mounted || cropped == null) return;
+      setState(() => _selectedAvatarBytes = cropped);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -250,7 +264,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ),
         Text(
-          'Optional. The image is cropped to avatar size inside the app.',
+          'Optional. You can drag and zoom before saving the avatar.',
           textAlign: TextAlign.center,
           style: tt.bodySmall?.copyWith(color: cs.onSurface.withOpacity(0.62)),
         ),
