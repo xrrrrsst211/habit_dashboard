@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:habit_dashboard/app/app.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/polished_feedback.dart';
+import 'package:habit_dashboard/core/widgets/image_crop_editor.dart';
 import 'package:habit_dashboard/features/about/about_screen.dart';
 import 'package:habit_dashboard/features/auth/data/auth_service.dart';
 import 'package:habit_dashboard/features/auth/data/profile_avatar_service.dart';
@@ -136,9 +137,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      await _avatarService.saveAvatarBytes(user.uid, bytes);
       if (!mounted) return;
-      setState(() => _avatarBytes = bytes);
+      final cropped = await Navigator.of(context).push<Uint8List>(
+        MaterialPageRoute(
+          builder: (_) => ImageCropEditorScreen(
+            imageBytes: bytes,
+            circular: true,
+            title: 'Adjust avatar',
+            helpText: 'Move and zoom the photo until your profile avatar looks right.',
+          ),
+        ),
+      );
+
+      if (!mounted || cropped == null) return;
+      await _avatarService.saveAvatarBytes(user.uid, cropped);
+      if (!mounted) return;
+      setState(() => _avatarBytes = cropped);
       showAppSnackBar(
         context,
         'Profile avatar updated.',
