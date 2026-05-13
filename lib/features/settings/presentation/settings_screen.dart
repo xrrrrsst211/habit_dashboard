@@ -33,6 +33,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _loading = true;
   bool _avatarBusy = false;
+  bool _profileBusy = false;
   bool _showArchived = false;
   bool _expandArchived = false;
   int _filterIndex = 0;
@@ -152,6 +153,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     } finally {
       if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _editDisplayName() async {
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final controller = TextEditingController(text: user.displayName ?? '');
+
+    final nickname = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit nickname'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 20,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            labelText: 'Nickname',
+            hintText: 'ShadowRunner',
+            prefixIcon: Icon(Icons.badge_outlined),
+          ),
+          onSubmitted: (value) => Navigator.pop(context, value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    final clean = nickname?.trim() ?? '';
+    if (clean.isEmpty) return;
+    if (clean.length < 2 || clean.length > 20) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        'Nickname must be 2–20 characters.',
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    final allowed = RegExp(r"^[a-zA-Z0-9_ .-]+$");
+    if (!allowed.hasMatch(clean)) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        'Use letters, numbers, spaces, _, - or .',
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    try {
+      setState(() => _profileBusy = true);
+      await _authService.updateDisplayName(clean);
+      final updatedUser = _authService.currentUser;
+      if (!mounted) return;
+      setState(() => _user = updatedUser);
+      showAppSnackBar(
+        context,
+        'Nickname updated.',
+        icon: Icons.check_circle_outline_rounded,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        'Could not update nickname. Try again.',
+        icon: Icons.error_outline_rounded,
+      );
+    } finally {
+      if (mounted) setState(() => _profileBusy = false);
     }
   }
 
@@ -344,8 +428,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               user: _user,
               avatarBytes: _avatarBytes,
               avatarBusy: _avatarBusy,
+              profileBusy: _profileBusy,
               onPickAvatar: _pickProfileAvatar,
               onRemoveAvatar: _removeProfileAvatar,
+              onEditDisplayName: _editDisplayName,
               onLogout: _logout,
               onOpenAccountAuth: _openAccountAuth,
             ),
@@ -439,8 +525,10 @@ class _AccountSettingsPanel extends StatelessWidget {
   final User? user;
   final Uint8List? avatarBytes;
   final bool avatarBusy;
+  final bool profileBusy;
   final VoidCallback onPickAvatar;
   final VoidCallback onRemoveAvatar;
+  final VoidCallback onEditDisplayName;
   final VoidCallback onLogout;
   final VoidCallback onOpenAccountAuth;
 
@@ -448,8 +536,10 @@ class _AccountSettingsPanel extends StatelessWidget {
     required this.user,
     required this.avatarBytes,
     required this.avatarBusy,
+    required this.profileBusy,
     required this.onPickAvatar,
     required this.onRemoveAvatar,
+    required this.onEditDisplayName,
     required this.onLogout,
     required this.onOpenAccountAuth,
   });
@@ -524,7 +614,12 @@ class _AccountSettingsPanel extends StatelessWidget {
       );
     }
 
+    final nickname = user?.displayName?.trim() ?? '';
     final email = user?.email ?? 'Signed in account';
+    final title = nickname.isEmpty ? email : nickname;
+    final subtitle = nickname.isEmpty
+        ? 'Firebase account is active. Add a nickname to make your profile cleaner.'
+        : email;
     final avatar = avatarBytes == null
         ? Icon(Icons.person_rounded, size: 34, color: cs.primary)
         : Image.memory(
@@ -554,15 +649,36 @@ class _AccountSettingsPanel extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    email,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        tooltip: 'Edit nickname',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: profileBusy ? null : onEditDisplayName,
+                        icon: profileBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.edit_outlined, size: 18),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Firebase account is active. Your habit data stays untouched locally.',
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: tt.bodySmall?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.68),
                       height: 1.3,
@@ -599,7 +715,7 @@ class _AccountSettingsPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Avatar supports normal image files and is shown cropped like a profile icon.',
+          'Avatar supports normal image files. Nickname and avatar are used as your cleaner in-app profile identity.',
           style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.62)),
         ),
         const Divider(height: 24),
