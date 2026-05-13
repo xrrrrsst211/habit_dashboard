@@ -26,6 +26,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirmPassword = TextEditingController();
+  final _nickname = TextEditingController();
 
   final AuthService auth = AuthService();
   final ProfileAvatarService _avatarService = ProfileAvatarService();
@@ -41,6 +42,7 @@ class _AuthScreenState extends State<AuthScreen> {
     _email.dispose();
     _password.dispose();
     _confirmPassword.dispose();
+    _nickname.dispose();
     super.dispose();
   }
 
@@ -64,6 +66,22 @@ class _AuthScreenState extends State<AuthScreen> {
     if (login) return null;
     if ((value ?? '').isEmpty) return 'Repeat your password';
     if (value != _password.text) return 'Passwords do not match';
+    return null;
+  }
+
+  String? _validateNickname(String? value) {
+    if (login) return null;
+
+    final nickname = value?.trim() ?? '';
+    if (nickname.isEmpty) return 'Choose a nickname';
+    if (nickname.length < 2) return 'Nickname must be at least 2 characters';
+    if (nickname.length > 20) return 'Nickname must be 20 characters or less';
+
+    final allowed = RegExp(r"^[a-zA-Z0-9_ .-]+$");
+    if (!allowed.hasMatch(nickname)) {
+      return 'Use letters, numbers, spaces, _, - or .';
+    }
+
     return null;
   }
 
@@ -142,7 +160,12 @@ class _AuthScreenState extends State<AuthScreen> {
       if (login) {
         await auth.signIn(email, password);
       } else {
-        final credential = await auth.register(email, password);
+        final nickname = _nickname.text.trim();
+        final credential = await auth.register(
+          email,
+          password,
+          displayName: nickname,
+        );
         final uid = credential.user?.uid;
         if (uid != null && _selectedAvatarBytes != null) {
           await _avatarService.saveAvatarBytes(uid, _selectedAvatarBytes!);
@@ -166,7 +189,10 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() {
       login = !login;
       _confirmPassword.clear();
-      if (login) _selectedAvatarBytes = null;
+      if (login) {
+        _nickname.clear();
+        _selectedAvatarBytes = null;
+      }
     });
   }
 
@@ -303,8 +329,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 const SizedBox(height: 8),
                                 Text(
                                   login
-                                      ? 'Login is optional. Continue as guest now, or sign in to make your profile feel personal.'
-                                      : 'Register with email and password. Add an avatar and keep your reward identity clean.',
+                                      ? 'Login is optional. Continue as guest now, or sign in to keep your profile identity clean.'
+                                      : 'Pick a nickname, add an optional avatar, and make the reward profile feel like yours.',
                                   style: tt.bodyMedium?.copyWith(
                                     color: cs.onSurface.withOpacity(0.72),
                                     height: 1.35,
@@ -312,6 +338,20 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 _buildAvatarPicker(cs, tt),
+                                if (!login) ...[
+                                  TextFormField(
+                                    controller: _nickname,
+                                    textInputAction: TextInputAction.next,
+                                    autofillHints: const [AutofillHints.nickname],
+                                    validator: _validateNickname,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Nickname',
+                                      hintText: 'ShadowRunner',
+                                      prefixIcon: Icon(Icons.badge_outlined),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                ],
                                 TextFormField(
                                   controller: _email,
                                   keyboardType: TextInputType.emailAddress,
@@ -321,6 +361,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   decoration: const InputDecoration(
                                     labelText: 'Email',
                                     hintText: 'you@example.com',
+                                    prefixIcon: Icon(Icons.alternate_email_rounded),
                                   ),
                                 ),
                                 const SizedBox(height: 14),
@@ -337,6 +378,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                   },
                                   decoration: InputDecoration(
                                     labelText: 'Password',
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded),
                                     suffixIcon: IconButton(
                                       onPressed: () => setState(() => _hidePassword = !_hidePassword),
                                       icon: Icon(
@@ -360,6 +402,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     },
                                     decoration: InputDecoration(
                                       labelText: 'Confirm password',
+                                      prefixIcon: const Icon(Icons.lock_reset_rounded),
                                       suffixIcon: IconButton(
                                         onPressed: () => setState(
                                           () => _hideConfirmPassword = !_hideConfirmPassword,
@@ -390,7 +433,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                               color: Colors.white,
                                             ),
                                           )
-                                        : Text(login ? 'Login' : 'Register'),
+                                        : Text(login ? 'Login' : 'Create profile'),
                                   ),
                                 ),
                                 const SizedBox(height: 10),
@@ -400,7 +443,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                     onPressed: loading ? null : _toggleMode,
                                     child: Text(
                                       login
-                                          ? 'Create account instead'
+                                          ? 'Create profile instead'
                                           : 'Already have an account? Login',
                                     ),
                                   ),
