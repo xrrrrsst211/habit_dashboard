@@ -32,7 +32,7 @@ enum _HomeMenuAction {
   toggleArchived,
   toggleTheme,
 
-  // ✅ Added
+  // Backup, support, and settings actions
   exportBackup,
   importBackup,
   exportBackupFile,
@@ -944,7 +944,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           action(
             icon: Icons.file_download_outlined,
-            label: 'Backup',
+            label: 'Save backup',
             onTap: () => _onMenuSelected(_HomeMenuAction.exportBackupFile),
           ),
         ],
@@ -1309,7 +1309,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // =========================
-  // ✅ Backup/Restore (Clipboard)
+  // Backup / restore helpers
   // =========================
 
   String _backupFileName() {
@@ -1323,7 +1323,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await Clipboard.setData(ClipboardData(text: json));
 
     if (!mounted) return;
-    _showAppSnackBar('Backup copied to clipboard ✅');
+    _showAppSnackBar('Backup text copied to clipboard ✅');
   }
 
   Future<void> _exportBackupToFile() async {
@@ -1332,7 +1332,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final bytes = Uint8List.fromList(utf8.encode(json));
 
       final saved = await FilePicker.platform.saveFile(
-        dialogTitle: 'Save backup JSON',
+        dialogTitle: 'Save Habit Dashboard backup',
         fileName: _backupFileName(),
         type: FileType.custom,
         allowedExtensions: const ['json'],
@@ -1372,7 +1372,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final ok = await showAppConfirmDialog(
         context,
         title: 'Import backup file?',
-        message: 'This will replace your current habits with the selected JSON backup. A restore point is created first.',
+        message: 'This will replace your current habits with the selected backup file. A restore point is created first, so you can roll back if needed.',
         confirmLabel: 'Import',
         icon: Icons.file_download_outlined,
       );
@@ -1386,7 +1386,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _showAppSnackBar('Backup imported from ${file.name} ✅');
     } catch (e) {
       if (!mounted) return;
-      _showAppSnackBar('Import failed: $e', duration: const Duration(seconds: 4));
+      _showAppSnackBar('Backup import failed: $e', duration: const Duration(seconds: 4));
     }
   }
 
@@ -1402,7 +1402,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final raw = controller.text.trim();
 
       if (raw.isEmpty) {
-        _showAppSnackBar('Clipboard is empty. Copy your backup JSON first.');
+        _showAppSnackBar('Clipboard is empty. Copy your backup text first.');
         return;
       }
 
@@ -1439,13 +1439,13 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Paste your backup JSON below (auto-filled from clipboard if available).'),
+              const Text('Paste your backup text below (auto-filled from clipboard if available).'),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
                 maxLines: 10,
                 decoration: const InputDecoration(
-                  hintText: 'Paste backup JSON here…',
+                  hintText: 'Paste backup text here…',
                 ),
               ),
             ],
@@ -1556,7 +1556,7 @@ class _HomeScreenState extends State<HomeScreen> {
         MyApp.of(context)?.toggleDarkMode();
         break;
 
-      // ✅ Added
+      // Backup, support, and settings actions
       case _HomeMenuAction.exportBackup:
         HapticFeedback.selectionClick();
         await _exportBackupToClipboard();
@@ -2015,23 +2015,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 const PopupMenuDivider(),
                 const PopupMenuItem(
                   value: _HomeMenuAction.exportBackup,
-                  child: Text('Backup: Copy to clipboard'),
+                  child: Text('Advanced backup: copy text'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.importBackup,
-                  child: Text('Restore: Paste from clipboard'),
+                  child: Text('Advanced restore: paste text'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.exportBackupFile,
-                  child: Text('Backup: Save JSON file'),
+                  child: Text('Save backup file'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.importBackupFile,
-                  child: Text('Restore: Import JSON file'),
+                  child: Text('Import backup file'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.restorePoints,
-                  child: Text('Safety: Restore points'),
+                  child: Text('Restore points'),
                 ),
                 const PopupMenuItem(
                   value: _HomeMenuAction.settings,
