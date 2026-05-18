@@ -1,4 +1,4 @@
-# Habit Dashboard
+ '# Habit Dashboard
 
 <p align="center">
   <img src="assets/branding/app_mark_512.png" alt="Habit Dashboard logo" width="120" />
