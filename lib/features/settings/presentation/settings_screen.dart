@@ -186,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           autofocus: true,
           maxLength: 20,
           textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Nickname'.tr,
             hintText: 'ShadowRunner',
             prefixIcon: Icon(Icons.badge_outlined),
