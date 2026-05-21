@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:habit_dashboard/app/app.dart';
 import 'package:habit_dashboard/core/constants/app_strings.dart';
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 import 'package:habit_dashboard/core/widgets/app_scaffold.dart';
 import 'package:habit_dashboard/core/widgets/empty_state.dart';
@@ -705,7 +706,7 @@ class _HomeScreenState extends State<HomeScreen> {
             FilledButton.tonalIcon(
               onPressed: () => _toggle(focus),
               icon: const Icon(Icons.shield_outlined, size: 18),
-              label: const Text('Done'),
+              label: Text('Done'.tr),
             ),
           ],
         ),
@@ -856,7 +857,7 @@ class _HomeScreenState extends State<HomeScreen> {
             FilledButton.icon(
               onPressed: () => _toggle(focus),
               icon: const Icon(Icons.done_rounded, size: 18),
-              label: const Text('Done'),
+              label: Text('Done'.tr),
             ),
           ],
         ),
@@ -1402,13 +1403,13 @@ class _HomeScreenState extends State<HomeScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Restore from clipboard'),
+        title: Text('Restore from clipboard'.tr),
         content: SizedBox(
           width: 560,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Paste your backup text below (auto-filled from clipboard if available).'),
+              Text('Paste your backup text below (auto-filled from clipboard if available).'.tr),
               const SizedBox(height: 12),
               TextField(
                 controller: controller,
@@ -1423,11 +1424,11 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text('Close'.tr),
           ),
           FilledButton(
             onPressed: doImport,
-            child: const Text('Restore'),
+            child: Text('Restore'.tr),
           ),
         ],
       ),
@@ -1584,13 +1585,13 @@ class _HomeScreenState extends State<HomeScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Restore points', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+                Text('Restore points'.tr, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                Text('Auto-created before imports and destructive actions.', style: Theme.of(context).textTheme.bodyMedium),
+                Text('Auto-created before imports and destructive actions.'.tr, style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 16),
                 if (points.isEmpty) const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Text('No restore points yet.'),
+                  child: Text('No restore points yet.'.tr),
                 ) else Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -1626,7 +1627,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 setState(() {});
                                 _showAppSnackBar('Restore point applied ✅');
                               },
-                              child: const Text('Restore'),
+                              child: Text('Restore'.tr),
                             ),
                           ],
                         ),
@@ -1789,7 +1790,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(children: [
                 const Icon(Icons.calendar_view_week_rounded),
                 const SizedBox(width: 8),
-                Text('Weekly review', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                Text('Weekly review'.tr, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               ]),
               const SizedBox(height: 6),
               Text('${start.month}/${start.day} - ${end.month}/${end.day} • $percent% completion', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: context.secondaryTextStyle.color)),
@@ -1897,6 +1898,99 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+
+  String _languageFlag(String code) {
+    switch (code) {
+      case 'ru':
+        return '🇷🇺';
+      case 'mn':
+        return '🇲🇳';
+      case 'en':
+      default:
+        return '🇺🇸';
+    }
+  }
+
+  String _nextLanguageCode(String currentCode) {
+    const order = <String>['en', 'ru', 'mn'];
+    final index = order.indexOf(currentCode);
+    if (index == -1 || index == order.length - 1) return order.first;
+    return order[index + 1];
+  }
+
+  Future<void> _cycleAppLanguage() async {
+    final app = MyApp.of(context);
+    final currentCode = app?.languageCode ?? AppLocalizations.languageCode;
+    final nextCode = _nextLanguageCode(currentCode);
+
+    HapticFeedback.selectionClick();
+    await app?.setLanguageCode(nextCode);
+
+    if (!mounted) return;
+    final language = AppLocalizations.languageFor(nextCode);
+    _showAppSnackBar('${'Language'.tr}: ${language.nativeName} ${_languageFlag(nextCode)}');
+  }
+
+  Widget _languageQuickButton() {
+    final cs = Theme.of(context).colorScheme;
+    final currentCode = MyApp.of(context)?.languageCode ?? AppLocalizations.languageCode;
+    final language = AppLocalizations.languageFor(currentCode);
+
+    return Tooltip(
+      message: '${'Language'.tr}: ${language.nativeName}',
+      child: Semantics(
+        button: true,
+        label: '${'Language'.tr}: ${language.nativeName}',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: _cycleAppLanguage,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              width: 42,
+              height: 42,
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    cs.primaryContainer.withOpacity(0.95),
+                    cs.secondaryContainer.withOpacity(0.82),
+                  ],
+                ),
+                border: Border.all(color: cs.outline.withOpacity(0.16)),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.primary.withOpacity(0.12),
+                    blurRadius: 14,
+                    offset: const Offset(0, 7),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                transitionBuilder: (child, animation) => ScaleTransition(
+                  scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                  child: FadeTransition(opacity: animation, child: child),
+                ),
+                child: Text(
+                  _languageFlag(currentCode),
+                  key: ValueKey(currentCode),
+                  style: const TextStyle(fontSize: 22),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _searchBar() {
 
     return Padding(
@@ -1905,13 +1999,13 @@ class _HomeScreenState extends State<HomeScreen> {
         controller: _searchCtrl,
         onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
         decoration: InputDecoration(
-          hintText: 'Search habits...',
+          hintText: 'Search habits...'.tr,
           prefixIcon: const Icon(Icons.search),
           filled: true,
           suffixIcon: _query.isEmpty
               ? null
               : IconButton(
-                  tooltip: 'Clear',
+                  tooltip: 'Clear'.tr,
                   onPressed: () {
                     _searchCtrl.clear();
                     setState(() => _query = '');
@@ -1937,7 +2031,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snap.hasError) {
-          return Scaffold(body: Center(child: Text('Error: ${snap.error}')));
+          return Scaffold(body: Center(child: Text('${'Error'.tr}: ${snap.error}')));
         }
 
         final todayKey = _todayKey();
@@ -1955,69 +2049,71 @@ class _HomeScreenState extends State<HomeScreen> {
 
         final headerRow = Row(
           children: [
-            const Expanded(child: TodayHeader()),
+            Expanded(child: TodayHeader()),
+            _languageQuickButton(),
+            const SizedBox(width: 4),
             IconButton(
-              tooltip: 'Stats',
+              tooltip: 'Stats'.tr,
               onPressed: _openStats,
               icon: const Icon(Icons.bar_chart_rounded),
             ),
             PopupMenuButton<_HomeMenuAction>(
-              tooltip: 'Menu',
+              tooltip: 'Menu'.tr,
               onSelected: _onMenuSelected,
               itemBuilder: (context) => [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.markAllDone,
-                  child: Text('Mark all done (today)'),
+                  child: Text('Mark all done (today)'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.resetToday,
-                  child: Text('Reset today'),
+                  child: Text('Reset today'.tr),
                 ),
                 PopupMenuItem(
                   value: _HomeMenuAction.toggleArchived,
-                  child: Text(_showArchived ? 'Collapse archived habits' : 'Expand archived habits'),
+                  child: Text((_showArchived ? 'Collapse archived habits' : 'Expand archived habits').tr),
                 ),
                 PopupMenuItem(
                   value: _HomeMenuAction.toggleTheme,
-                  child: Text(isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
+                  child: Text((isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode').tr),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.exportBackup,
-                  child: Text('Copy backup text'),
+                  child: Text('Copy backup text'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.importBackup,
-                  child: Text('Restore from pasted text'),
+                  child: Text('Restore from pasted text'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.exportBackupFile,
-                  child: Text('Save backup file'),
+                  child: Text('Save backup file'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.importBackupFile,
-                  child: Text('Import backup file'),
+                  child: Text('Import backup file'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.restorePoints,
-                  child: Text('Restore points'),
+                  child: Text('Restore points'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.settings,
-                  child: Text('Settings'),
+                  child: Text('Settings'.tr),
                 ),
                 const PopupMenuDivider(),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.about,
-                  child: Text('About'),
+                  child: Text('About'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.privacy,
-                  child: Text('Privacy policy'),
+                  child: Text('Privacy policy'.tr),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _HomeMenuAction.support,
-                  child: Text('Support'),
+                  child: Text('Support'.tr),
                 ),
               ],
               child: const Padding(
@@ -2035,7 +2131,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: const Icon(Icons.add),
           ),
           body: activeHabits.isEmpty && archivedHabits.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   title: AppStrings.emptyTitle,
                   subtitle: AppStrings.emptySubtitle,
                 )

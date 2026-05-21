@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 
 class EmptyState extends StatelessWidget {
@@ -57,13 +58,13 @@ class EmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                title,
+                title.tr,
                 style: t.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                subtitle,
+                subtitle.tr,
                 style: t.bodyMedium?.copyWith(
                   color: context.secondaryTextStyle.color,
                   height: 1.35,
@@ -85,7 +86,7 @@ class EmptyState extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          hint!,
+                          hint!.tr,
                           style: t.bodySmall?.copyWith(
                             color: cs.onSurface.withValues(alpha: 0.75),
                             height: 1.35,

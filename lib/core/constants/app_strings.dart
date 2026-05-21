@@ -1,11 +1,13 @@
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
+
 class AppStrings {
-  static const appTitle = 'Daily Habit Dashboard';
+  static String get appTitle => 'Daily Habit Dashboard'.tr;
 
-  static const today = 'Today';
+  static String get today => 'Today'.tr;
 
-  static const progressTitle = 'Daily progress';
-  static const progressSubtitle = '{done} / {total} habits completed';
+  static String get progressTitle => 'Daily progress'.tr;
+  static String get progressSubtitle => '{done} / {total} habits completed'.tr;
 
-  static const emptyTitle = 'No habits yet';
-  static const emptySubtitle = 'Tap + to add your first habit.';
+  static String get emptyTitle => 'No habits yet'.tr;
+  static String get emptySubtitle => 'Tap + to add your first habit.'.tr;
 }

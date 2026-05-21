@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
 import 'package:habit_dashboard/core/theme/app_styles.dart';
 
 class TodayHeader extends StatelessWidget {
@@ -28,7 +29,7 @@ class TodayHeader extends StatelessWidget {
     final now = DateTime.now();
     final text = '${_monthName(now.month)} ${now.day}, ${now.year}';
     final displayName = FirebaseAuth.instance.currentUser?.displayName?.trim() ?? '';
-    final title = displayName.isEmpty ? 'Today' : 'Today, $displayName';
+    final title = displayName.isEmpty ? 'Today'.tr : '${'Today'.tr}, $displayName';
 
     return Row(
       children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
 
 class AppScaffold extends StatelessWidget {
   final String title;
@@ -55,13 +56,13 @@ class AppScaffold extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              title,
+                              title.tr,
                               style: tt.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                             ),
                             if (subtitle != null) ...[
                               const SizedBox(height: 6),
                               Text(
-                                subtitle!,
+                                subtitle!.tr,
                                 style: tt.bodyMedium?.copyWith(
                                   color: cs.onSurface.withValues(alpha: 0.74),
                                   height: 1.35,

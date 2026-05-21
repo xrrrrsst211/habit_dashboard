@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:habit_dashboard/app/theme.dart';
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
 import 'package:habit_dashboard/features/auth/data/auth_service.dart';
 import 'package:habit_dashboard/features/auth/presentation/auth_screen.dart';
 import 'package:habit_dashboard/features/habits/presentation/home/home_screen.dart';
@@ -9,8 +10,13 @@ import 'package:habit_dashboard/features/onboarding/presentation/onboarding_scre
 
 class MyApp extends StatefulWidget {
   final bool initialDarkMode;
+  final String initialLanguageCode;
 
-  const MyApp({super.key, required this.initialDarkMode});
+  const MyApp({
+    super.key,
+    required this.initialDarkMode,
+    required this.initialLanguageCode,
+  });
 
   static MyAppState? of(BuildContext context) {
     return context.findAncestorStateOfType<MyAppState>();
@@ -22,6 +28,7 @@ class MyApp extends StatefulWidget {
 
 class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late bool _isDarkMode;
+  late String _languageCode;
 
   static const String _lastOpenedDayPrefKey = 'last_opened_day';
   String _lastKnownDayKey = _dayKeyFrom(DateTime.now());
@@ -30,6 +37,10 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _isDarkMode = widget.initialDarkMode;
+    _languageCode = AppLocalizations.isSupported(widget.initialLanguageCode)
+        ? widget.initialLanguageCode
+        : AppLocalizations.fallbackCode;
+    AppLocalizations.setLanguage(_languageCode);
 
     WidgetsBinding.instance.addObserver(this);
     _ensureDayIsFresh();
@@ -71,6 +82,18 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   bool get isDarkMode => _isDarkMode;
 
+  String get languageCode => _languageCode;
+
+  Future<void> setLanguageCode(String code) async {
+    if (!AppLocalizations.isSupported(code) || _languageCode == code) return;
+    final prefs = await SharedPreferences.getInstance();
+    _languageCode = code;
+    AppLocalizations.setLanguage(code);
+    await prefs.setString(AppLocalizations.prefKey, code);
+    if (!mounted) return;
+    setState(() {});
+  }
+
   Future<void> toggleDarkMode() async {
     final prefs = await SharedPreferences.getInstance();
     _isDarkMode = !_isDarkMode;
@@ -85,6 +108,10 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
       darkTheme: buildDarkAppTheme(),
+      locale: AppLocalizations.locale,
+      supportedLocales: AppLocalizations.supportedLanguages
+          .map((language) => Locale(language.code))
+          .toList(growable: false),
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const _AppEntry(),
     );
@@ -241,14 +268,14 @@ class _BrandSplashScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                'Habit Dashboard',
+                'Habit Dashboard'.tr,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Build better routines. Quit bad ones.',
+                'Build better routines. Quit bad ones.'.tr,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: cs.onSurface.withOpacity(0.72),
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:habit_dashboard/core/localization/app_localizations.dart';
 import 'package:habit_dashboard/core/constants/app_strings.dart';
 
 class DailyProgressCard extends StatelessWidget {
@@ -20,12 +21,12 @@ class DailyProgressCard extends StatelessWidget {
 
     final progress = total == 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
     final tone = progress >= 1
-        ? 'Perfect day'
+        ? 'Perfect day'.tr
         : progress >= 0.66
-            ? 'Strong momentum'
+            ? 'Strong momentum'.tr
             : progress > 0
-                ? 'Keep it going'
-                : 'Fresh start';
+                ? 'Keep it going'.tr
+                : 'Fresh start'.tr;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.96, end: 1.0),

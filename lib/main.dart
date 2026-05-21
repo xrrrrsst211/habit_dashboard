@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app/app.dart';
 import 'core/notifications/notification_service.dart';
+import 'core/localization/app_localizations.dart';
 import 'core/firebase/firebase_bootstrap.dart';
 
 Future<void> main() async {
@@ -13,6 +14,9 @@ Future<void> main() async {
 
   final prefs = await SharedPreferences.getInstance();
   final isDark = prefs.getBool('is_dark_mode') ?? false;
+  final languageCode = prefs.getString(AppLocalizations.prefKey) ??
+      AppLocalizations.fallbackCode;
+  AppLocalizations.setLanguage(languageCode);
 
-  runApp(MyApp(initialDarkMode: isDark));
+  runApp(MyApp(initialDarkMode: isDark, initialLanguageCode: languageCode));
 }
