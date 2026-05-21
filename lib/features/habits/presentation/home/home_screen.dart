@@ -783,7 +783,7 @@ class _HomeScreenState extends State<HomeScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              cs.primary.withOpacity(0.12),
+              cs.primary.withValues(alpha: 0.12),
               focus.color.withOpacity(0.08),
               cs.surface,
             ],
@@ -1589,8 +1589,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 8),
                 Text('Auto-created before imports and destructive actions.'.tr, style: Theme.of(context).textTheme.bodyMedium),
                 const SizedBox(height: 16),
-                if (points.isEmpty) const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
+                if (points.isEmpty) Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
                   child: Text('No restore points yet.'.tr),
                 ) else Flexible(
                   child: ListView.separated(
@@ -1679,7 +1679,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(
-                        color: cs.primary.withOpacity(0.12),
+                        color: cs.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(18),
                       ),
                       alignment: Alignment.center,
@@ -1958,14 +1958,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    cs.primaryContainer.withOpacity(0.95),
-                    cs.secondaryContainer.withOpacity(0.82),
+                    cs.primaryContainer.withValues(alpha: 0.95),
+                    cs.secondaryContainer.withValues(alpha: 0.82),
                   ],
                 ),
-                border: Border.all(color: cs.outline.withOpacity(0.16)),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.16)),
                 boxShadow: [
                   BoxShadow(
-                    color: cs.primary.withOpacity(0.12),
+                    color: cs.primary.withValues(alpha: 0.12),
                     blurRadius: 14,
                     offset: const Offset(0, 7),
                   ),
