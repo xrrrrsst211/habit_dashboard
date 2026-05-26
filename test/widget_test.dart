@@ -10,7 +10,7 @@ void main() {
   });
 
   testWidgets('App builds', (WidgetTester tester) async {
-    await tester.pumpWidget(const MyApp(initialDarkMode: false, initialLanguageCode: 'en'));
+    await tester.pumpWidget(const MyApp(initialDarkMode: false));
     await tester.pumpAndSettle();
 
     expect(find.byType(MyApp), findsOneWidget);

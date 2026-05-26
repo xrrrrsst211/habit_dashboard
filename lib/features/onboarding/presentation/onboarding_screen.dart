@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:habit_dashboard/core/localization/app_localizations.dart';
 
 import 'package:habit_dashboard/features/habits/data/habit_repository.dart';
 import 'package:habit_dashboard/features/habits/domain/habit.dart';
@@ -115,14 +114,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               const SizedBox(height: 28),
               Text(
-                'Welcome to Habit Dashboard'.tr,
+                'Welcome to Habit Dashboard',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w900,
                     ),
               ),
               const SizedBox(height: 10),
               Text(
-                'A cleaner start for building good habits, quitting bad ones, and tracking streaks without clutter.'.tr,
+                'A cleaner start for building good habits, quitting bad ones, and tracking streaks without clutter.',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: cs.onSurface.withOpacity(0.76),
                       height: 1.35,
@@ -131,20 +130,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               const SizedBox(height: 22),
               _FeatureCard(
                 icon: Icons.trending_up_rounded,
-                title: 'Build habits'.tr,
-                text: 'Track routines like water, workouts, reading, sleep, coding, or study goals.'.tr,
+                title: 'Build habits',
+                text: 'Track routines like water, workouts, reading, sleep, coding, or study goals.',
               ),
               const SizedBox(height: 12),
               _FeatureCard(
                 icon: Icons.shield_outlined,
-                title: 'Quit habits'.tr,
-                text: 'Use clean streaks for smoking, alcohol, vaping, sugar, junk food, and more.'.tr,
+                title: 'Quit habits',
+                text: 'Use clean streaks for smoking, alcohol, vaping, sugar, junk food, and more.',
               ),
               const SizedBox(height: 12),
               _FeatureCard(
                 icon: Icons.insights_rounded,
-                title: 'Stay motivated'.tr,
-                text: 'History, milestones, reminders, notes, archive, and backup are already built in.'.tr,
+                title: 'Stay motivated',
+                text: 'History, milestones, reminders, notes, archive, and backup are already built in.',
               ),
               const SizedBox(height: 24),
               Container(
@@ -156,7 +155,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   border: Border.all(color: cs.primary.withOpacity(0.12)),
                 ),
                 child: Text(
-                  'Start clean with your own first habit, or load a few example habits to explore the app faster.'.tr,
+                  'Start clean with your own first habit, or load a few example habits to explore the app faster.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.35),
                 ),
               ),
@@ -172,7 +171,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.add_rounded),
-                  label: Text('Create first habit'.tr),
+                  label: const Text('Create first habit'),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -184,7 +183,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _busy ? null : _startWithExamples,
                   icon: const Icon(Icons.auto_awesome_rounded),
-                  label: Text('Start with examples'.tr),
+                  label: const Text('Start with examples'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
@@ -238,14 +237,14 @@ class _FeatureCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title.tr,
+                  title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  text.tr,
+                  text,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: cs.onSurface.withOpacity(0.76),
                         height: 1.35,

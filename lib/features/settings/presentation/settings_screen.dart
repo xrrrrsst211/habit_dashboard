@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:habit_dashboard/core/localization/app_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:habit_dashboard/app/app.dart';
@@ -122,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!mounted) return;
         showAppSnackBar(
           context,
-          'Could not read this image. Try another one.'.tr,
+          'Could not read this image. Try another one.',
           icon: Icons.error_outline_rounded,
         );
         return;
@@ -132,7 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (!mounted) return;
         showAppSnackBar(
           context,
-          'Pick a smaller image under 2 MB.'.tr,
+          'Pick a smaller image under 2 MB.',
           icon: Icons.image_not_supported_outlined,
         );
         return;
@@ -144,8 +143,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (_) => ImageCropEditorScreen(
             imageBytes: bytes,
             circular: true,
-            title: 'Adjust avatar'.tr,
-            helpText: 'Move and zoom the photo until your profile avatar looks right.'.tr,
+            title: 'Adjust avatar',
+            helpText: 'Move and zoom the photo until your profile avatar looks right.',
           ),
         ),
       );
@@ -156,14 +155,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _avatarBytes = cropped);
       showAppSnackBar(
         context,
-        'Profile avatar updated.'.tr,
+        'Profile avatar updated.',
         icon: Icons.check_circle_outline_rounded,
       );
     } catch (_) {
       if (!mounted) return;
       showAppSnackBar(
         context,
-        'Could not open image picker.'.tr,
+        'Could not open image picker.',
         icon: Icons.error_outline_rounded,
       );
     } finally {
@@ -180,14 +179,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final nickname = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Edit nickname'.tr),
+        title: const Text('Edit nickname'),
         content: TextField(
           controller: controller,
           autofocus: true,
           maxLength: 20,
           textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
-            labelText: 'Nickname'.tr,
+          decoration: const InputDecoration(
+            labelText: 'Nickname',
             hintText: 'ShadowRunner',
             prefixIcon: Icon(Icons.badge_outlined),
           ),
@@ -196,11 +195,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel'.tr),
+            child: const Text('Cancel'),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text('Save'.tr),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -214,7 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       showAppSnackBar(
         context,
-        'Nickname must be 2–20 characters.'.tr,
+        'Nickname must be 2–20 characters.',
         icon: Icons.error_outline_rounded,
       );
       return;
@@ -225,7 +224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       showAppSnackBar(
         context,
-        'Use letters, numbers, spaces, _, - or .'.tr,
+        'Use letters, numbers, spaces, _, - or .',
         icon: Icons.error_outline_rounded,
       );
       return;
@@ -239,14 +238,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _user = updatedUser);
       showAppSnackBar(
         context,
-        'Nickname updated.'.tr,
+        'Nickname updated.',
         icon: Icons.check_circle_outline_rounded,
       );
     } catch (_) {
       if (!mounted) return;
       showAppSnackBar(
         context,
-        'Could not update nickname. Try again.'.tr,
+        'Could not update nickname. Try again.',
         icon: Icons.error_outline_rounded,
       );
     } finally {
@@ -263,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _avatarBytes = null);
     showAppSnackBar(
       context,
-      'Profile avatar removed.'.tr,
+      'Profile avatar removed.',
       icon: Icons.delete_outline_rounded,
     );
   }
@@ -298,7 +297,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
     showAppSnackBar(
       context,
-      'Onboarding will appear again next launch.'.tr,
+      'Onboarding will appear again next launch.',
       icon: Icons.flag_outlined,
     );
   }
@@ -325,31 +324,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     return AppScaffold(
-      title: 'Settings & preferences'.tr,
+      title: 'Settings & preferences',
       subtitle:
-          'Tune startup behavior, appearance, and launch-ready info without touching your habit data.'.tr,
+          'Tune startup behavior, appearance, and launch-ready info without touching your habit data.',
       body: ListView(
         children: [
           _HeroSettingsCard(
-            title: 'Your experience, your defaults'.tr,
+            title: 'Your experience, your defaults',
             subtitle:
-                'Pick how the app opens, how the dashboard behaves, and what’s ready for demos or Play Market presentation.'.tr,
+                'Pick how the app opens, how the dashboard behaves, and what’s ready for demos or Play Market presentation.',
             icon: Icons.tune_rounded,
           ),
           const SizedBox(height: 16),
           _SectionCard(
-            title: 'Appearance'.tr,
+            title: 'Appearance',
             icon: Icons.palette_outlined,
             child: Column(
               children: [
                 SwitchListTile.adaptive(
                   value: isDark,
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Dark mode'.tr),
+                  title: const Text('Dark mode'),
                   subtitle: Text(
                     isDark
-                        ? 'Use the darker look across the app.'.tr
-                        : 'Use the lighter look across the app.'.tr,
+                        ? 'Use the darker look across the app.'
+                        : 'Use the lighter look across the app.',
                   ),
                   onChanged: (_) async {
                     await app?.toggleDarkMode();
@@ -362,78 +361,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           _SectionCard(
-            title: 'Language'.tr,
-            icon: Icons.language_rounded,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Switch between English, Russian, and Mongolian.'.tr,
-                  style: tt.bodyMedium?.copyWith(
-                    color: cs.onSurface.withValues(alpha: 0.72),
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: app?.languageCode ?? AppLocalizations.languageCode,
-                  decoration: InputDecoration(
-                    labelText: 'App language'.tr,
-                    prefixIcon: const Icon(Icons.translate_rounded),
-                  ),
-                  items: AppLocalizations.supportedLanguages
-                      .map(
-                        (language) => DropdownMenuItem<String>(
-                          value: language.code,
-                          child: Text(language.nativeName),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (code) async {
-                    if (code == null) return;
-                    await app?.setLanguageCode(code);
-                    if (!mounted) return;
-                    setState(() {});
-                    showAppSnackBar(
-                      context,
-                      'Language updated.'.tr,
-                      icon: Icons.translate_rounded,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _SectionCard(
-            title: 'Home screen defaults'.tr,
+            title: 'Home screen defaults',
             icon: Icons.home_outlined,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Choose how the dashboard should look when you open the app.'.tr,
+                  'Choose how the dashboard should look when you open the app.',
                   style: tt.bodyMedium?.copyWith(
                     color: cs.onSurface.withValues(alpha: 0.72),
                   ),
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Default filter'.tr,
+                  'Default filter',
                   style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
                   value: _filterIndex,
-                  items: [
-                    DropdownMenuItem(value: 0, child: Text('All habits'.tr)),
-                    DropdownMenuItem(value: 1, child: Text('Active only'.tr)),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('All habits')),
+                    DropdownMenuItem(value: 1, child: Text('Active only')),
                     DropdownMenuItem(
                       value: 2,
-                      child: Text('Completed today'.tr),
+                      child: Text('Completed today'),
                     ),
-                    DropdownMenuItem(value: 3, child: Text('Build habits'.tr)),
-                    DropdownMenuItem(value: 4, child: Text('Quit habits'.tr)),
+                    DropdownMenuItem(value: 3, child: Text('Build habits')),
+                    DropdownMenuItem(value: 4, child: Text('Quit habits')),
                   ],
                   onChanged: (value) {
                     if (value != null) _setFilter(value);
@@ -441,17 +396,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Default sort'.tr,
+                  'Default sort',
                   style: tt.labelLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
                   value: _sortIndex,
-                  items: [
-                    DropdownMenuItem(value: 0, child: Text('Manual order'.tr)),
-                    DropdownMenuItem(value: 1, child: Text('Highest streak'.tr)),
-                    DropdownMenuItem(value: 2, child: Text('Name'.tr)),
-                    DropdownMenuItem(value: 3, child: Text('Today status'.tr)),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Manual order')),
+                    DropdownMenuItem(value: 1, child: Text('Highest streak')),
+                    DropdownMenuItem(value: 2, child: Text('Name')),
+                    DropdownMenuItem(value: 3, child: Text('Today status')),
                   ],
                   onChanged: (value) {
                     if (value != null) _setSort(value);
@@ -461,18 +416,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SwitchListTile.adaptive(
                   value: _showArchived,
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Show archived section on startup'.tr),
-                  subtitle: Text(
-                    'Keep archived habits visible when the dashboard opens.'.tr,
+                  title: const Text('Show archived section on startup'),
+                  subtitle: const Text(
+                    'Keep archived habits visible when the dashboard opens.',
                   ),
                   onChanged: _setShowArchived,
                 ),
                 SwitchListTile.adaptive(
                   value: _expandArchived,
                   contentPadding: EdgeInsets.zero,
-                  title: Text('Expand archived section on startup'.tr),
-                  subtitle: Text(
-                    'Useful if you often restore or review older habits.'.tr,
+                  title: const Text('Expand archived section on startup'),
+                  subtitle: const Text(
+                    'Useful if you often restore or review older habits.',
                   ),
                   onChanged: _showArchived ? _setExpandArchived : null,
                 ),
@@ -481,7 +436,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           _SectionCard(
-            title: 'Account'.tr,
+            title: 'Account',
             icon: Icons.person_outline_rounded,
             child: _AccountSettingsPanel(
               user: _user,
@@ -497,29 +452,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           _SectionCard(
-            title: 'Launch & support'.tr,
+            title: 'Launch & support',
             icon: Icons.rocket_launch_outlined,
             child: Column(
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.flag_circle_outlined),
-                  title: Text('Show onboarding again'.tr),
-                  subtitle: Text(
-                    'Useful before demos or if you want to review the intro flow.'.tr,
+                  title: const Text('Show onboarding again'),
+                  subtitle: const Text(
+                    'Useful before demos or if you want to review the intro flow.',
                   ),
                   trailing: TextButton(
                     onPressed: _resetOnboarding,
-                    child: Text('Reset'.tr),
+                    child: const Text('Reset'),
                   ),
                 ),
                 const Divider(height: 20),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.info_outline_rounded),
-                  title: Text('About'.tr),
-                  subtitle: Text(
-                    'App version, product summary, and support basics.'.tr,
+                  title: const Text('About'),
+                  subtitle: const Text(
+                    'App version, product summary, and support basics.',
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _openAbout(AboutSection.about),
@@ -527,9 +482,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.privacy_tip_outlined),
-                  title: Text('Privacy policy'.tr),
-                  subtitle: Text(
-                    'Check the local privacy policy included with the app.'.tr,
+                  title: const Text('Privacy policy'),
+                  subtitle: const Text(
+                    'Check the local privacy policy included with the app.',
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _openAbout(AboutSection.privacy),
@@ -537,9 +492,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.support_agent_rounded),
-                  title: Text('Support'.tr),
-                  subtitle: Text(
-                    'Find the contact address and basic help info.'.tr,
+                  title: const Text('Support'),
+                  subtitle: const Text(
+                    'Find the contact address and basic help info.',
                   ),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => _openAbout(AboutSection.support),
@@ -562,7 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'These preferences change only the app experience and startup defaults. Your habits, streaks, backups, and analytics stay untouched.'.tr,
+                    'These preferences change only the app experience and startup defaults. Your habits, streaks, backups, and analytics stay untouched.',
                     style: tt.bodyMedium?.copyWith(
                       color: cs.onSurface.withValues(alpha: 0.84),
                       height: 1.35,
@@ -635,7 +590,7 @@ class _AccountSettingsPanel extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'No account required. Your habits, XP, ranks, and settings stay on this device.'.tr,
+                      'No account required. Your habits, XP, ranks, and settings stay on this device.',
                       style: tt.bodySmall?.copyWith(
                         color: cs.onSurface.withValues(alpha: 0.68),
                         height: 1.3,
@@ -652,20 +607,20 @@ class _AccountSettingsPanel extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: onOpenAccountAuth,
               icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: Text('Create account / login'.tr),
+              label: const Text('Create account / login'),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Account is optional, but it lets you personalize your profile with an avatar and makes the reward profile feel more yours.'.tr,
+            'Account is optional, but it lets you personalize your profile with an avatar and makes the reward profile feel more yours.',
             style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.62)),
           ),
           const Divider(height: 24),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.login_rounded),
-            title: Text('Show login screen on next launch'.tr),
-            subtitle: Text('Turn off guest auto-entry and return to the account screen.'.tr),
+            title: const Text('Show login screen on next launch'),
+            subtitle: const Text('Turn off guest auto-entry and return to the account screen.'),
             trailing: const Icon(Icons.chevron_right_rounded),
             onTap: onLogout,
           ),
@@ -677,7 +632,7 @@ class _AccountSettingsPanel extends StatelessWidget {
     final email = user?.email ?? 'Signed in account';
     final title = nickname.isEmpty ? email : nickname;
     final subtitle = nickname.isEmpty
-        ? 'Firebase account is active. Add a nickname to make your profile cleaner.'.tr
+        ? 'Firebase account is active. Add a nickname to make your profile cleaner.'
         : email;
     final avatar = avatarBytes == null
         ? Icon(Icons.person_rounded, size: 34, color: cs.primary)
@@ -774,15 +729,15 @@ class _AccountSettingsPanel extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Avatar supports normal image files. Nickname and avatar are used as your cleaner in-app profile identity.'.tr,
+          'Avatar supports normal image files. Nickname and avatar are used as your cleaner in-app profile identity.',
           style: tt.bodySmall?.copyWith(color: cs.onSurface.withValues(alpha: 0.62)),
         ),
         const Divider(height: 24),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.logout_rounded),
-          title: Text('Log out'.tr),
-          subtitle: Text('Return to the login / registration screen.'.tr),
+          title: const Text('Log out'),
+          subtitle: const Text('Return to the login / registration screen.'),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: onLogout,
         ),
