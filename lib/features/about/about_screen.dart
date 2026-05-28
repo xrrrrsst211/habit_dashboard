@@ -53,7 +53,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   icon: Icons.check_circle_rounded,
                   title: 'Habit Dashboard',
                   subtitle: 'Build better routines. Quit bad ones. Recover without losing the bigger picture.',
-                  trailing: 'v1.1.1+3',
+                  trailing: 'v2.0.2+6',
                 ),
                 const SizedBox(height: 16),
               ],
